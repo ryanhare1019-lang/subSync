@@ -59,3 +59,55 @@ export function getPosterUrl(path: string | null): string | null {
   if (!path) return null;
   return `${TMDB_IMAGE_BASE}${path}`;
 }
+
+// TMDB provider IDs for common services
+const PROVIDER_IDS: Record<string, number> = {
+  'Netflix': 8,
+  'Hulu': 15,
+  'Disney+': 337,
+  'HBO Max': 1899,
+  'Amazon Prime': 9,
+  'Apple TV+': 350,
+  'Peacock': 386,
+  'Paramount+': 531,
+  'Crunchyroll': 283,
+  'YouTube Premium': 188,
+};
+
+export interface BrowseResult {
+  id: number;
+  title: string;
+  poster_url: string | null;
+  media_type: 'movie' | 'tv';
+  year: string | null;
+  rating: number;
+}
+
+export async function discoverByServices(
+  serviceNames: string[],
+  type: 'movie' | 'tv',
+  page = 1
+): Promise<BrowseResult[]> {
+  if (!API_KEY) return [];
+  const providerIds = serviceNames
+    .map(n => PROVIDER_IDS[n])
+    .filter(Boolean);
+  if (providerIds.length === 0) return [];
+
+  const res = await fetch(
+    `${TMDB_BASE}/discover/${type}?api_key=${API_KEY}&with_watch_providers=${providerIds.join('|')}&watch_region=US&sort_by=popularity.desc&page=${page}&include_adult=false`
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+
+  return (data.results || []).map((r: Record<string, unknown>) => ({
+    id: r.id as number,
+    title: (type === 'movie' ? r.title : r.name) as string,
+    poster_url: r.poster_path ? `${TMDB_IMAGE_BASE}${r.poster_path}` : null,
+    media_type: type,
+    year: (type === 'movie'
+      ? (r.release_date as string)?.split('-')[0]
+      : (r.first_air_date as string)?.split('-')[0]) ?? null,
+    rating: Math.round((r.vote_average as number) * 10) / 10,
+  }));
+}

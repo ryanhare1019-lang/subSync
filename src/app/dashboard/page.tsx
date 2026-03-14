@@ -8,16 +8,16 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+  const [profileRes, tasteRes] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase.from('taste_profiles').select('id').eq('user_id', user.id).single(),
+  ]);
 
   return (
     <DashboardClient
       userEmail={user.email}
-      displayName={profile?.display_name}
+      displayName={profileRes.data?.display_name}
+      hasTasteProfile={!!tasteRes.data}
     />
   );
 }

@@ -5,13 +5,16 @@ import { Navbar } from '@/components/Navbar';
 import { SubscriptionList } from '@/components/SubscriptionList';
 import { RecommendationFeed } from '@/components/RecommendationFeed';
 import { Subscription, Recommendation } from '@/types';
+import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 
 interface DashboardClientProps {
   userEmail?: string | null;
   displayName?: string | null;
+  hasTasteProfile: boolean;
 }
 
-export function DashboardClient({ userEmail, displayName }: DashboardClientProps) {
+export function DashboardClient({ userEmail, displayName, hasTasteProfile }: DashboardClientProps) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
@@ -92,22 +95,38 @@ export function DashboardClient({ userEmail, displayName }: DashboardClientProps
     );
   };
 
-  const userServices = subscriptions.map(s => s.service_name);
-
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400 text-sm">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar userEmail={userEmail} displayName={displayName} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Taste profile banner */}
+        {!hasTasteProfile && (
+          <Link
+            href="/onboarding"
+            className="flex items-center justify-between gap-4 p-4 mb-6 bg-brand/10 border border-brand/25 rounded-xl hover:bg-brand/15 transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-brand/20 flex items-center justify-center">
+                <Sparkles size={16} className="text-brand" />
+              </div>
+              <div>
+                <p className="text-gray-900 dark:text-white text-sm font-semibold">Set up your taste profile</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs">Tell us what you love and we'll find perfect picks for you</p>
+              </div>
+            </div>
+            <span className="text-brand text-sm font-medium group-hover:translate-x-0.5 transition-transform">Start →</span>
+          </Link>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Subscriptions panel */}
           <div className="lg:col-span-2">
             <SubscriptionList
               subscriptions={subscriptions}
@@ -116,12 +135,10 @@ export function DashboardClient({ userEmail, displayName }: DashboardClientProps
               onUpdate={handleUpdateSubscription}
             />
           </div>
-
-          {/* Recommendations panel */}
           <div className="lg:col-span-3">
             <RecommendationFeed
               recommendations={recommendations}
-              userServices={userServices}
+              userServices={subscriptions.map(s => s.service_name)}
               onGetRecs={handleGetRecommendations}
               onFeedback={handleFeedback}
               loading={recsLoading}
