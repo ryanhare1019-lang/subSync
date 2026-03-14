@@ -15,10 +15,43 @@ export const STREAMING_SERVICES: ServiceOption[] = [
   { name: 'Apple Music', type: 'streaming_music', defaultCost: 10.99, color: '#FC3C44', bgColor: 'bg-red-950' },
   { name: 'Tidal', type: 'streaming_music', defaultCost: 10.99, color: '#00FFFF', bgColor: 'bg-cyan-950' },
   { name: 'Audible', type: 'audiobooks', defaultCost: 14.95, color: '#F8991D', bgColor: 'bg-orange-950' },
-  { name: 'Xbox Game Pass', type: 'gaming', defaultCost: 14.99, color: '#107C10', bgColor: 'bg-green-950' },
-  { name: 'PlayStation Plus', type: 'gaming', defaultCost: 9.99, color: '#003791', bgColor: 'bg-blue-950' },
-  { name: 'Nintendo Switch Online', type: 'gaming', defaultCost: 3.99, color: '#E60012', bgColor: 'bg-red-950' },
 ];
+
+// Simpleicons CDN slugs (https://simpleicons.org)
+export const SERVICE_ICON_SLUGS: Record<string, string> = {
+  'Netflix': 'netflix',
+  'Hulu': 'hulu',
+  'Disney+': 'disneyplus',
+  'HBO Max': 'hbomax',
+  'Amazon Prime': 'amazonprimevideo',
+  'Apple TV+': 'appletv',
+  'Peacock': 'peacocktv',
+  'Paramount+': 'paramountplus',
+  'Crunchyroll': 'crunchyroll',
+  'YouTube Premium': 'youtube',
+  'Spotify': 'spotify',
+  'Apple Music': 'applemusic',
+  'Tidal': 'tidal',
+  'Audible': 'audible',
+};
+
+// Billing / account management pages
+export const BILLING_URLS: Record<string, string> = {
+  'Netflix': 'https://www.netflix.com/YourAccount',
+  'Hulu': 'https://www.hulu.com/account/billing',
+  'Disney+': 'https://www.disneyplus.com/account/subscription',
+  'HBO Max': 'https://www.max.com/account',
+  'Amazon Prime': 'https://www.amazon.com/mc/optOutEligibility',
+  'Apple TV+': 'https://apps.apple.com/account/subscriptions',
+  'Peacock': 'https://www.peacocktv.com/account',
+  'Paramount+': 'https://www.paramountplus.com/account/cancel/',
+  'Crunchyroll': 'https://www.crunchyroll.com/account/membership',
+  'YouTube Premium': 'https://www.youtube.com/paid_memberships',
+  'Spotify': 'https://www.spotify.com/account/subscription/',
+  'Apple Music': 'https://apps.apple.com/account/subscriptions',
+  'Tidal': 'https://account.tidal.com',
+  'Audible': 'https://www.audible.com/account/membership',
+};
 
 export const GENRES = [
   'Action', 'Adventure', 'Animation', 'Anime', 'Comedy', 'Crime',

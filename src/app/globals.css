@@ -1,13 +1,11 @@
 @import "tailwindcss";
 
-/* Dark mode via data-theme attribute */
 @variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-/* Brand/primary color */
 @theme {
-  --color-brand: #bd3dbf;
-  --color-brand-hover: #a834aa;
-  --color-brand-light: #d166d3;
+  --color-brand: #D946EF;
+  --color-brand-hover: #C026D3;
+  --color-brand-light: #E879F9;
 }
 
 body {
@@ -15,11 +13,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Text size scaling */
+html.text-size-sm { font-size: 14px; }
+html.text-size-md { font-size: 16px; }
+html.text-size-lg { font-size: 18px; }
+
 * { box-sizing: border-box; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
 [data-theme=dark] ::-webkit-scrollbar-thumb { background: #374151; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-[data-theme=dark] ::-webkit-scrollbar-thumb:hover { background: #4b5563; }

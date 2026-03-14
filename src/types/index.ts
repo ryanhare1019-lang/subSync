@@ -8,7 +8,7 @@ export interface Subscription {
   id: string;
   user_id: string;
   service_name: string;
-  service_type: 'streaming_video' | 'streaming_music' | 'audiobooks' | 'gaming' | 'other';
+  service_type: 'streaming_video' | 'streaming_music' | 'audiobooks' | 'other';
   monthly_cost: number;
   billing_cycle: 'monthly' | 'annual';
   next_renewal: string | null;

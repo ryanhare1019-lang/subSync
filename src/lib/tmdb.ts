@@ -83,23 +83,65 @@ export interface BrowseResult {
   rating: number;
 }
 
-export async function discoverByServices(
-  serviceNames: string[],
-  type: 'movie' | 'tv',
-  page = 1
-): Promise<BrowseResult[]> {
-  if (!API_KEY) return [];
-  const providerIds = serviceNames
-    .map(n => PROVIDER_IDS[n])
-    .filter(Boolean);
-  if (providerIds.length === 0) return [];
+// TMDB genre IDs
+export const TMDB_MOVIE_GENRES = [
+  { id: 28, name: 'Action' }, { id: 35, name: 'Comedy' }, { id: 18, name: 'Drama' },
+  { id: 878, name: 'Sci-Fi' }, { id: 27, name: 'Horror' }, { id: 99, name: 'Documentary' },
+  { id: 16, name: 'Animation' }, { id: 10749, name: 'Romance' }, { id: 53, name: 'Thriller' },
+  { id: 14, name: 'Fantasy' },
+];
 
+export const TMDB_TV_GENRES = [
+  { id: 10759, name: 'Action & Adventure' }, { id: 35, name: 'Comedy' }, { id: 18, name: 'Drama' },
+  { id: 10765, name: 'Sci-Fi & Fantasy' }, { id: 27, name: 'Horror' }, { id: 99, name: 'Documentary' },
+  { id: 16, name: 'Animation' }, { id: 9648, name: 'Mystery' }, { id: 10749, name: 'Romance' },
+];
+
+export interface GenreRow {
+  id: number;
+  name: string;
+  results: BrowseResult[];
+}
+
+async function discoverPage(
+  type: 'movie' | 'tv',
+  providerIds: number[],
+  genreId: number,
+  sortBy: string
+): Promise<BrowseResult[]> {
+  if (!API_KEY || providerIds.length === 0) return [];
   const res = await fetch(
-    `${TMDB_BASE}/discover/${type}?api_key=${API_KEY}&with_watch_providers=${providerIds.join('|')}&watch_region=US&sort_by=popularity.desc&page=${page}&include_adult=false`
+    `${TMDB_BASE}/discover/${type}?api_key=${API_KEY}&with_watch_providers=${providerIds.join('|')}&watch_region=US&with_genres=${genreId}&sort_by=${sortBy}&include_adult=false&vote_count.gte=50`
   );
   if (!res.ok) return [];
   const data = await res.json();
+  return (data.results || []).slice(0, 12).map((r: Record<string, unknown>) => ({
+    id: r.id as number,
+    title: (type === 'movie' ? r.title : r.name) as string,
+    poster_url: r.poster_path ? `${TMDB_IMAGE_BASE}${r.poster_path}` : null,
+    media_type: type,
+    year: (type === 'movie'
+      ? (r.release_date as string)?.split('-')[0]
+      : (r.first_air_date as string)?.split('-')[0]) ?? null,
+    rating: Math.round((r.vote_average as number) * 10) / 10,
+  }));
+}
 
+export async function discoverByServices(
+  serviceNames: string[],
+  type: 'movie' | 'tv',
+  page = 1,
+  sortBy = 'popularity.desc'
+): Promise<BrowseResult[]> {
+  if (!API_KEY) return [];
+  const providerIds = serviceNames.map(n => PROVIDER_IDS[n]).filter(Boolean);
+  if (providerIds.length === 0) return [];
+
+  const res = await fetch(
+    `${TMDB_BASE}/discover/${type}?api_key=${API_KEY}&with_watch_providers=${providerIds.join('|')}&watch_region=US&sort_by=${sortBy}&page=${page}&include_adult=false&vote_count.gte=20`
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
   return (data.results || []).map((r: Record<string, unknown>) => ({
     id: r.id as number,
     title: (type === 'movie' ? r.title : r.name) as string,
@@ -110,4 +152,32 @@ export async function discoverByServices(
       : (r.first_air_date as string)?.split('-')[0]) ?? null,
     rating: Math.round((r.vote_average as number) * 10) / 10,
   }));
+}
+
+export async function discoverByGenres(
+  serviceNames: string[],
+  type: 'movie' | 'tv',
+  sortBy = 'popularity.desc'
+): Promise<GenreRow[]> {
+  const providerIds = serviceNames.map(n => PROVIDER_IDS[n]).filter(Boolean);
+  if (providerIds.length === 0) return [];
+
+  const genres = type === 'movie' ? TMDB_MOVIE_GENRES : TMDB_TV_GENRES;
+  // Fetch top 6 genres in parallel
+  const rows = await Promise.all(
+    genres.slice(0, 6).map(async g => ({
+      id: g.id,
+      name: g.name,
+      results: await discoverPage(type, providerIds, g.id, sortBy),
+    }))
+  );
+  return rows.filter(r => r.results.length > 0);
+}
+
+export async function getStreamingLink(tmdbId: number, type: 'movie' | 'tv'): Promise<Record<string, string>> {
+  if (!API_KEY) return {};
+  const res = await fetch(`${TMDB_BASE}/${type}/${tmdbId}/watch/providers?api_key=${API_KEY}`);
+  if (!res.ok) return {};
+  const data = await res.json();
+  return data.results?.US?.link ? { tmdb: data.results.US.link } : {};
 }
