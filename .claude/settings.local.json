@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/astral/**)",
+      "Bash(npx create-next-app@latest subSync --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(cd /home/astral && npx create-next-app@latest subsync --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git 2>&1 | tail -20)",
+      "Bash(cd /home/astral && echo \"No\" | npx create-next-app@latest subsync --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git 2>&1)",
+      "Bash(cp -r /home/astral/subsync/. /home/astral/subSync/ && ls /home/astral/subSync/)"
+    ]
+  }
+}
