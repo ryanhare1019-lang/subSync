@@ -22,7 +22,7 @@ export const SERVICE_ICON_SLUGS: Record<string, string> = {
   'Netflix': 'netflix',
   'Hulu': 'hulu',
   'Disney+': 'disneyplus',
-  'HBO Max': 'hbomax',
+  'HBO Max': 'max',
   'Amazon Prime': 'amazonprimevideo',
   'Apple TV+': 'appletv',
   'Peacock': 'peacocktv',
@@ -51,6 +51,14 @@ export const BILLING_URLS: Record<string, string> = {
   'Apple Music': 'https://apps.apple.com/account/subscriptions',
   'Tidal': 'https://account.tidal.com',
   'Audible': 'https://www.audible.com/account/membership',
+};
+
+// Direct music player links (not billing)
+export const MUSIC_PLAYER_URLS: Record<string, string> = {
+  'Spotify': 'https://open.spotify.com',
+  'Apple Music': 'https://music.apple.com',
+  'Tidal': 'https://tidal.com/browse',
+  'Audible': 'https://www.audible.com/library',
 };
 
 export const GENRES = [

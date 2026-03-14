@@ -3,7 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: 'SubSync — Your Subscription Hub',
+  title: 'SubSync: Your Subscription Hub',
   description: 'Track your streaming subscriptions and discover what to watch next.',
 };
 

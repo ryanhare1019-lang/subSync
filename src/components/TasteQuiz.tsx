@@ -183,7 +183,7 @@ export function TasteQuiz({ userId: _userId, existing }: TasteQuizProps) {
           {currentStepKey === 'favorites' && (
             <motion.div key="favorites" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Name titles you love</h1>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">Add 3–5 movies or shows — this is the best signal for great picks.</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">Add 3-5 movies or shows. This is the best signal for great picks.</p>
               {favoriteTitles.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {favoriteTitles.map(t => (
@@ -228,7 +228,7 @@ export function TasteQuiz({ userId: _userId, existing }: TasteQuizProps) {
           {currentStepKey === 'dislikes' && (
             <motion.div key="dislikes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Anything you'd rather avoid?</h1>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">Optional — genres you never want recommended.</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">Optional. Select genres you never want recommended.</p>
               <div className="flex flex-wrap gap-2">
                 {GENRES.filter(g => !selectedGenres.includes(g)).map(genre => {
                   const sel = dislikedGenres.includes(genre);

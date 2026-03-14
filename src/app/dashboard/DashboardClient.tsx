@@ -18,6 +18,7 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
+  const [recsError, setRecsError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -73,12 +74,17 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
 
   const handleGetRecommendations = async () => {
     setRecsLoading(true);
+    setRecsError(null);
     try {
       const res = await fetch('/api/recommendations', { method: 'POST' });
+      const data = await res.json();
       if (res.ok) {
-        const newRecs = await res.json();
-        setRecommendations(prev => [...newRecs, ...prev]);
+        setRecommendations(prev => [...data, ...prev]);
+      } else {
+        setRecsError(data?.error || 'Failed to generate recommendations. Check that your Anthropic API key is set in .env.local.');
       }
+    } catch {
+      setRecsError('Network error while fetching recommendations.');
     } finally {
       setRecsLoading(false);
     }
@@ -142,6 +148,7 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
               onGetRecs={handleGetRecommendations}
               onFeedback={handleFeedback}
               loading={recsLoading}
+              error={recsError}
             />
           </div>
         </div>

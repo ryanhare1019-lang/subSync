@@ -13,6 +13,7 @@ interface RecommendationFeedProps {
   onGetRecs: () => Promise<void>;
   onFeedback: (id: string, feedback: 'loved' | 'watched' | 'not_interested') => Promise<void>;
   loading: boolean;
+  error?: string | null;
 }
 
 const MediaIcon = ({ type }: { type: string }) => {
@@ -82,7 +83,7 @@ function RecCard({ rec, userServices, onFeedback }: {
                 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
                 : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700'
             }`}>
-              {rec.service_name}{!hasService && ' — not subscribed'}
+              {rec.service_name}{!hasService && ' (not subscribed)'}
             </span>
           )}
         </div>
@@ -115,7 +116,7 @@ function RecCard({ rec, userServices, onFeedback }: {
   );
 }
 
-export function RecommendationFeed({ recommendations, userServices, onGetRecs, onFeedback, loading }: RecommendationFeedProps) {
+export function RecommendationFeed({ recommendations, userServices, onGetRecs, onFeedback, loading, error }: RecommendationFeedProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -129,6 +130,11 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
         </Button>
       </div>
 
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-sm rounded-xl">
+          {error}
+        </div>
+      )}
       {recommendations.length === 0 && !loading ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <Star size={36} className="mx-auto mb-3 text-brand opacity-60" />
