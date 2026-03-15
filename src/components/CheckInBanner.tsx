@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBadge } from './ServiceIcon';
-import { Flame, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Flame, CheckCircle2, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Subscription } from '@/types';
 
 interface CheckInStatus {
@@ -17,18 +17,17 @@ interface CheckInStatus {
 
 interface CheckInBannerProps {
   subscriptions: Subscription[];
+  onCheckinComplete?: () => void;
 }
 
-export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
+export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBannerProps) {
   const [status, setStatus] = useState<CheckInStatus | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const videoSubs = subscriptions.filter(s => s.service_type !== 'streaming_music');
-  const allSubs = subscriptions;
 
   useEffect(() => {
     fetch('/api/checkin/status')
@@ -45,7 +44,6 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
   }, []);
 
   const toggle = (name: string) => {
-    if (status?.checked_in_today && !submitted) return; // Already checked in; read-only unless they re-submit
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -54,6 +52,8 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
     });
   };
 
+  const isCheckedIn = status?.checked_in_today ?? false;
+
   const handleSubmit = async () => {
     if (selected.size === 0 || submitting) return;
     setSubmitting(true);
@@ -61,7 +61,10 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
       const res = await fetch('/api/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services: Array.from(selected) }),
+        body: JSON.stringify({
+          services: Array.from(selected),
+          replace: isCheckedIn, // replace on edit, append on first check-in
+        }),
       });
       const data = await res.json();
       setStatus(prev => prev ? {
@@ -71,39 +74,42 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
         current_streak: data.current_streak,
         longest_streak: data.longest_streak,
       } : prev);
-      setSubmitted(true);
-      // Collapse after a brief delay
-      setTimeout(() => setCollapsed(true), 1800);
+      setEditing(false);
+      setJustSaved(true);
+      setTimeout(() => {
+        setJustSaved(false);
+        setCollapsed(true);
+      }, 1600);
+      onCheckinComplete?.();
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading || allSubs.length === 0) return null;
+  if (loading || subscriptions.length === 0) return null;
 
-  const isCheckedIn = status?.checked_in_today || submitted;
   const streak = status?.current_streak ?? 0;
+  const showForm = !isCheckedIn || editing;
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl mb-6 overflow-hidden">
-      {/* Header row — always visible */}
+      {/* Header — always visible */}
       <div
-        className="flex items-center justify-between px-4 py-3 cursor-pointer"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
         onClick={() => setCollapsed(c => !c)}
       >
         <div className="flex items-center gap-2">
-          {isCheckedIn ? (
+          {isCheckedIn && !editing ? (
             <CheckCircle2 size={16} className="text-emerald-500" />
           ) : (
             <Flame size={16} className="text-orange-400" />
           )}
           <span className="text-sm font-semibold text-gray-900 dark:text-white">
-            {isCheckedIn ? 'Checked in today ✓' : 'What did you use today?'}
+            {isCheckedIn && !editing ? 'Checked in today ✓' : 'What did you use today?'}
           </span>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Streak badge */}
           <div className="flex items-center gap-1.5">
             <span className="text-lg leading-none">🔥</span>
             <div className="text-right">
@@ -124,7 +130,7 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
         </div>
       </div>
 
-      {/* Streak broke nudge */}
+      {/* Streak-broke nudge */}
       <AnimatePresence>
         {status?.broke_streak && !isCheckedIn && !collapsed && (
           <motion.div
@@ -152,17 +158,20 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
             className="overflow-hidden"
           >
             <div className="px-4 pb-4">
-              {/* Service icon grid */}
+              {/* Service icon grid — always interactive */}
               <div className="flex flex-wrap gap-3 mb-4">
-                {allSubs.map(sub => {
+                {subscriptions.map(sub => {
                   const isSelected = selected.has(sub.service_name);
+                  const isReadOnly = isCheckedIn && !editing;
                   return (
                     <button
                       key={sub.service_name}
-                      onClick={() => toggle(sub.service_name)}
-                      className="relative flex flex-col items-center gap-1 group"
+                      onClick={() => !isReadOnly && toggle(sub.service_name)}
+                      className={`relative flex flex-col items-center gap-1 ${isReadOnly ? 'cursor-default' : 'group'}`}
                     >
-                      <div className={`relative transition-all duration-150 ${isSelected ? 'scale-110' : 'opacity-60 hover:opacity-90 hover:scale-105'}`}>
+                      <div className={`relative transition-all duration-150 ${
+                        isSelected ? 'scale-110' : isReadOnly ? 'opacity-40' : 'opacity-60 hover:opacity-90 hover:scale-105'
+                      }`}>
                         <ServiceBadge name={sub.service_name} size={48} />
                         {isSelected && (
                           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
@@ -178,28 +187,60 @@ export function CheckInBanner({ subscriptions }: CheckInBannerProps) {
                 })}
               </div>
 
-              {/* Submit button */}
-              {!isCheckedIn ? (
-                <button
-                  onClick={handleSubmit}
-                  disabled={selected.size === 0 || submitting}
-                  className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {submitting ? 'Logging…' : `Log it (${selected.size} selected)`}
-                </button>
-              ) : (
-                <AnimatePresence>
-                  {submitted && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium"
+              {/* Action row */}
+              <div className="flex items-center gap-2">
+                {showForm ? (
+                  <>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={selected.size === 0 || submitting}
+                      className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <CheckCircle2 size={16} /> Updated ✓
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              )}
+                      {submitting
+                        ? 'Saving…'
+                        : isCheckedIn
+                          ? `Save changes (${selected.size} selected)`
+                          : `Log it (${selected.size} selected)`}
+                    </button>
+                    {isCheckedIn && editing && (
+                      <button
+                        onClick={() => {
+                          setEditing(false);
+                          setSelected(new Set(status?.today_services ?? []));
+                        }}
+                        className="px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <AnimatePresence>
+                      {justSaved && (
+                        <motion.span
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-sm font-medium"
+                        >
+                          <CheckCircle2 size={14} /> Saved ✓
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(true);
+                        setCollapsed(false);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+                    >
+                      <Pencil size={11} /> Edit today's check-in
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

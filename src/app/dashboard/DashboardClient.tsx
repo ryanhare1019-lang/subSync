@@ -177,7 +177,10 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
 
         {/* Daily check-in — always visible when user has subscriptions */}
         {subscriptions.length > 0 && (
-          <CheckInBanner subscriptions={subscriptions} />
+          <CheckInBanner
+            subscriptions={subscriptions}
+            onCheckinComplete={fetchSpendingStats}
+          />
         )}
 
         {/* Tab nav */}

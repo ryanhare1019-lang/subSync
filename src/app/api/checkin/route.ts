@@ -6,12 +6,23 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { services } = await req.json() as { services: string[] };
+  const { services, replace = false } = await req.json() as { services: string[]; replace?: boolean };
   if (!Array.isArray(services) || services.length === 0) {
     return NextResponse.json({ error: 'services array required' }, { status: 400 });
   }
 
   const today = new Date().toISOString().split('T')[0];
+
+  if (replace) {
+    // Delete all of today's check-in entries and re-insert the new set
+    await supabase
+      .from('activity_log')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('source', 'checkin')
+      .gte('created_at', `${today}T00:00:00`)
+      .lt('created_at', `${today}T23:59:59`);
+  }
 
   // Insert activity_log rows for each service
   await supabase.from('activity_log').insert(
