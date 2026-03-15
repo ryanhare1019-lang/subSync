@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { Plus, Info } from 'lucide-react';
+import { ServiceIcon } from '@/components/ServiceIcon';
 import type { HeroItem } from '@/types/browse';
 
 interface BrowseHeroProps {
@@ -69,10 +70,8 @@ export function BrowseHero({ hero, onMoreInfo }: BrowseHeroProps) {
             </span>
           )}
           {hero.service && (
-            <span
-              className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white"
-              style={{ backgroundColor: hero.service_color || '#444' }}
-            >
+            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-white/90">
+              <ServiceIcon name={hero.service} size={16} variant="white" />
               {hero.service}
             </span>
           )}

@@ -29,4 +29,6 @@ export interface BrowseRow {
 export interface BrowseRowsResponse {
   hero: HeroItem | null;
   rows: BrowseRow[];
+  hasMore?: boolean;
+  page?: number;
 }

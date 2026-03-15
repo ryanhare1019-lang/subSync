@@ -11,13 +11,17 @@ function tomorrowUTC() {
   return d.toISOString().split('T')[0];
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const today = todayUTC();
-  const tomorrow = tomorrowUTC();
+  const url = new URL(req.url);
+  const localDate = url.searchParams.get('localDate');
+  const today = localDate || todayUTC();
+  const tomorrow = localDate
+    ? (() => { const d = new Date(localDate + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().split('T')[0]; })()
+    : tomorrowUTC();
 
   const [streakRes, todayActivityRes] = await Promise.all([
     supabase.from('checkin_streaks').select('*').eq('user_id', user.id).single(),

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Search, X, Film, Tv } from 'lucide-react';
+import { RefreshCw, Search, X, Film, Tv, Sparkles } from 'lucide-react';
 import { BrowseHero, BrowseHeroSkeleton } from './BrowseHero';
 import { BrowseRowComponent, BrowseRowSkeleton } from './BrowseRow';
 import { BrowseCard } from './BrowseCard';
 import { DetailModal } from './DetailModal';
-import type { BrowseRowsResponse, BrowseRowItem, HeroItem } from '@/types/browse';
+import type { BrowseRowsResponse, BrowseRowItem, HeroItem, BrowseRow } from '@/types/browse';
 
 interface SearchResult {
   id: number;
@@ -40,13 +40,28 @@ function resultToItem(r: SearchResult): BrowseRowItem {
   };
 }
 
+type TypeFilter = 'all' | 'movie' | 'tv';
 type SearchFilter = 'all' | 'movie' | 'tv';
+
+const GENRE_PILLS = [
+  'Action', 'Adventure', 'Anime', 'Comedy', 'Crime', 'Documentary',
+  'Drama', 'Fantasy', 'Horror', 'K-Drama', 'Mystery', 'Romance',
+  'Sci-Fi', 'Thriller', 'Western',
+];
 
 export function BrowsePage() {
   const [data, setData] = useState<BrowseRowsResponse | null>(null);
+  const [extraRows, setExtraRows] = useState<BrowseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextPage, setNextPage] = useState(2);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<(BrowseRowItem & { ai_reason?: string; match_score?: number }) | null>(null);
+
+  // Type filter
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [activeGenre, setActiveGenre] = useState<string | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,22 +70,62 @@ export function BrowsePage() {
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('all');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (bust = false) => {
+  // Intersection observer for infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async (bust = false, type?: TypeFilter) => {
     setLoading(true);
     setError(null);
+    const t = type !== undefined ? type : typeFilter;
     try {
-      const res = await fetch(`/api/browse/rows${bust ? '?bust=1' : ''}`);
-      if (!res.ok) throw new Error('Failed to load browse data');
-      setData(await res.json());
+      const params = new URLSearchParams();
+      if (bust) params.set('bust', '1');
+      if (t !== 'all') params.set('type', t);
+      const res = await fetch(`/api/browse/rows?${params}`);
+      if (!res.ok) throw new Error('Failed to load');
+      const json: BrowseRowsResponse = await res.json();
+      setData(json);
+      setExtraRows([]);
+      setHasMore(json.hasMore !== false);
+      setNextPage(2);
     } catch {
       setError('Could not load content. Check your API keys.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [typeFilter]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ page: nextPage.toString() });
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+      const res = await fetch(`/api/browse/rows?${params}`);
+      if (!res.ok) return;
+      const json: BrowseRowsResponse = await res.json();
+      setExtraRows(prev => [...prev, ...json.rows]);
+      setHasMore(json.hasMore !== false);
+      setNextPage(p => p + 1);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, nextPage, typeFilter]);
 
   useEffect(() => { load(); }, [load]);
 
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '400px' }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  // Search debounce
   const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearchLoading(true);
@@ -93,13 +148,36 @@ export function BrowsePage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery, runSearch]);
 
+  const handleTypeFilter = (t: TypeFilter) => {
+    setTypeFilter(t);
+    setActiveGenre(null);
+    load(false, t);
+  };
+
+  const handleGenreFilter = (genre: string) => {
+    if (activeGenre === genre) {
+      setActiveGenre(null);
+      return;
+    }
+    setActiveGenre(genre);
+  };
+
   const handleCardClick = (item: BrowseRowItem) => setSelectedItem(item);
   const handleHeroMoreInfo = (item: HeroItem) => setSelectedItem(item);
 
   const isSearching = searchQuery.trim().length > 0;
-  const filteredResults = searchFilter === 'all'
+  const filteredSearchResults = searchFilter === 'all'
     ? searchResults
     : searchResults.filter(r => r.media_type === searchFilter);
+
+  // Filter rows by active genre if set
+  const allRows = [...(data?.rows || []), ...extraRows];
+  const visibleRows = activeGenre
+    ? allRows.filter(row =>
+        row.title.toLowerCase().includes(activeGenre.toLowerCase()) ||
+        row.items.some(item => item.genres.some(g => g.toLowerCase().includes(activeGenre.toLowerCase())))
+      )
+    : allRows;
 
   const searchFilters: { id: SearchFilter; label: string; icon?: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
@@ -109,8 +187,9 @@ export function BrowsePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0F0F0F]">
-      {/* Search bar */}
-      <div className="px-4 md:px-6 pt-4 pb-3">
+      {/* Search + filters bar */}
+      <div className="px-4 md:px-6 pt-4 pb-3 space-y-3">
+        {/* Search input */}
         <div className="relative max-w-xl">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
@@ -133,9 +212,49 @@ export function BrowsePage() {
           )}
         </div>
 
+        {/* Category toggles — hidden while searching */}
+        {!isSearching && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Type filters */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              {(['all', 'movie', 'tv'] as TypeFilter[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => handleTypeFilter(t)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                    typeFilter === t
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {t === 'movie' ? <Film size={12} /> : t === 'tv' ? <Tv size={12} /> : <Sparkles size={12} />}
+                  {t === 'all' ? 'All' : t === 'movie' ? 'Movies' : 'TV'}
+                </button>
+              ))}
+            </div>
+
+            {/* Genre pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+              {GENRE_PILLS.map(genre => (
+                <button
+                  key={genre}
+                  onClick={() => handleGenreFilter(genre)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${
+                    activeGenre === genre
+                      ? 'bg-brand text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  {genre}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Search filter pills */}
-        {isSearching && searchResults.length > 0 && (
-          <div className="flex gap-2 mt-3">
+        {isSearching && filteredSearchResults.length > 0 && (
+          <div className="flex gap-2">
             {searchFilters.map(f => (
               <button
                 key={f.id}
@@ -162,9 +281,9 @@ export function BrowsePage() {
               <div className="w-5 h-5 border-2 border-gray-200 dark:border-gray-700 border-t-gray-500 dark:border-t-gray-400 rounded-full animate-spin" />
             </div>
           )}
-          {!searchLoading && filteredResults.length > 0 && (
+          {!searchLoading && filteredSearchResults.length > 0 && (
             <div className="grid gap-x-3 gap-y-4 md:gap-x-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
-              {filteredResults.map(item => (
+              {filteredSearchResults.map(item => (
                 <BrowseCard
                   key={`${item.tmdb_id}-${item.media_type}`}
                   item={item}
@@ -173,7 +292,7 @@ export function BrowsePage() {
               ))}
             </div>
           )}
-          {!searchLoading && searchQuery.trim() && filteredResults.length === 0 && (
+          {!searchLoading && searchQuery.trim() && filteredSearchResults.length === 0 && (
             <div className="text-center py-16">
               <p className="text-gray-500 text-sm">No results for &ldquo;{searchQuery}&rdquo;</p>
             </div>
@@ -181,7 +300,7 @@ export function BrowsePage() {
         </div>
       )}
 
-      {/* Browse content (hidden while searching) */}
+      {/* Browse content */}
       {!isSearching && (
         <>
           {error ? (
@@ -197,45 +316,56 @@ export function BrowsePage() {
             </div>
           ) : (
             <>
-              {/* Hero */}
-              {loading || !data ? (
+              {/* Hero — only on unfiltered view */}
+              {!activeGenre && (loading || !data ? (
                 <BrowseHeroSkeleton />
               ) : data.hero ? (
                 <BrowseHero hero={data.hero} onMoreInfo={handleHeroMoreInfo} />
-              ) : null}
+              ) : null)}
 
               {/* Rows */}
               <div className="pt-4">
                 {loading || !data ? (
-                  <>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <BrowseRowSkeleton key={i} />
-                    ))}
-                  </>
-                ) : data.rows.length === 0 ? (
+                  Array.from({ length: 4 }).map((_, i) => <BrowseRowSkeleton key={i} />)
+                ) : visibleRows.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-24 text-center px-6">
-                    <p className="text-gray-500 text-sm mb-2">No content rows available.</p>
-                    <p className="text-gray-400 dark:text-gray-600 text-xs">Add streaming subscriptions to see personalized content.</p>
+                    <p className="text-gray-500 text-sm mb-2">No content for &ldquo;{activeGenre}&rdquo; yet.</p>
+                    <button onClick={() => setActiveGenre(null)} className="text-brand text-sm">
+                      Clear filter
+                    </button>
                   </div>
                 ) : (
-                  data.rows.map((row) => (
+                  visibleRows.map((row) => (
                     <BrowseRowComponent key={row.id} row={row} onCardClick={handleCardClick} />
                   ))
                 )}
-              </div>
 
-              {/* Refresh button */}
-              {!loading && data && (
-                <div className="flex justify-center py-8">
-                  <button
-                    onClick={() => load(true)}
-                    className="flex items-center gap-2 text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400 text-xs transition-colors"
-                  >
-                    <RefreshCw size={12} />
-                    Refresh recommendations
-                  </button>
-                </div>
-              )}
+                {/* Loading more indicator */}
+                {loadingMore && (
+                  <div className="flex justify-center py-8">
+                    <div className="w-5 h-5 border-2 border-gray-200 dark:border-gray-700 border-t-brand rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {/* Sentinel for infinite scroll */}
+                {!loading && hasMore && !activeGenre && (
+                  <div ref={sentinelRef} className="h-1" />
+                )}
+
+                {/* End of content */}
+                {!loading && !hasMore && data && (
+                  <div className="flex flex-col items-center gap-3 py-10">
+                    <p className="text-gray-400 dark:text-gray-600 text-sm">You&apos;ve seen it all! Refresh for new picks.</p>
+                    <button
+                      onClick={() => load(true)}
+                      className="flex items-center gap-2 text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400 text-xs transition-colors"
+                    >
+                      <RefreshCw size={12} />
+                      Refresh recommendations
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </>

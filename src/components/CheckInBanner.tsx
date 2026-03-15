@@ -31,8 +31,20 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
   const [tablesMissing, setTablesMissing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Local date helper
+  const getLocalDate = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  const getHoursUntilMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return Math.ceil((midnight.getTime() - now.getTime()) / (1000 * 60 * 60));
+  };
+
   useEffect(() => {
-    fetch('/api/checkin/status')
+    fetch(`/api/checkin/status?localDate=${getLocalDate()}`)
       .then(r => r.json())
       .then((data: CheckInStatus & { tables_missing?: boolean }) => {
         if (data.tables_missing) {
@@ -72,6 +84,7 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
         body: JSON.stringify({
           services: Array.from(selected),
           replace: isCheckedIn,
+          localDate: getLocalDate(),
         }),
       });
       const data = await res.json();
@@ -131,9 +144,16 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
           ) : (
             <Flame size={16} className="text-orange-400" />
           )}
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">
-            {isCheckedIn && !editing ? 'Checked in today ✓' : 'What did you use today?'}
-          </span>
+          <div>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              {isCheckedIn && !editing ? 'Checked in today ✓' : 'What did you use today?'}
+            </span>
+            {isCheckedIn && !editing && (
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">
+                Next check-in available in {getHoursUntilMidnight()}h
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

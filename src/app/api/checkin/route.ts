@@ -16,13 +16,16 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { services, replace = false } = await req.json() as { services: string[]; replace?: boolean };
+  const { services, replace = false, localDate } = await req.json() as { services: string[]; replace?: boolean; localDate?: string };
   if (!Array.isArray(services) || services.length === 0) {
     return NextResponse.json({ error: 'services array required' }, { status: 400 });
   }
 
-  const today = todayUTC();
-  const tomorrow = tomorrowUTC();
+  // Prefer client-supplied local date (YYYY-MM-DD) so check-ins reset at local midnight
+  const today = localDate || todayUTC();
+  const tomorrow = localDate
+    ? (() => { const d = new Date(localDate + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().split('T')[0]; })()
+    : tomorrowUTC();
 
   if (replace) {
     await supabase

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { ServiceIcon } from '@/components/ServiceIcon';
 import type { BrowseRowItem } from '@/types/browse';
 
 interface BrowseCardProps {
@@ -37,14 +38,12 @@ export function BrowseCard({ item, onClick }: BrowseCardProps) {
             <span className="text-gray-500 dark:text-gray-400 text-[11px] text-center leading-tight">{item.title}</span>
           </div>
         )}
-
-        {/* Shimmer while image loads */}
         {!imgLoaded && item.poster_url && (
           <div className="absolute inset-0 shimmer" />
         )}
       </div>
 
-      {/* Title + year + service */}
+      {/* Title + year + service logo */}
       <div className="mt-1.5 px-0.5">
         <p className="text-gray-900 dark:text-white text-[12px] md:text-[13px] font-semibold leading-tight line-clamp-2">
           {item.title}
@@ -53,15 +52,10 @@ export function BrowseCard({ item, onClick }: BrowseCardProps) {
           {item.year && (
             <span className="text-gray-500 text-[11px]">{item.year}</span>
           )}
-          {item.service_abbrev && (
+          {item.service && (
             <>
               <span className="text-gray-400 text-[10px]">·</span>
-              <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white leading-none"
-                style={{ backgroundColor: item.service_color || '#444' }}
-              >
-                {item.service_abbrev}
-              </span>
+              <ServiceIcon name={item.service} size={12} variant="brand" />
             </>
           )}
         </div>
