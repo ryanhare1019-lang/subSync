@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SubscriptionList } from '@/components/SubscriptionList';
-import { RecommendationFeed } from '@/components/RecommendationFeed';
 import { CheckInBanner } from '@/components/CheckInBanner';
 import { SpendingStatCards } from '@/components/SpendingStatCards';
 import { SpendingDonut, SpendingHistory } from '@/components/SpendingCharts';
 import { CostPerUseTable } from '@/components/CostPerUseTable';
-import { Subscription, Recommendation } from '@/types';
+import { BrowsePage } from '@/components/browse/BrowsePage';
+import { SearchPage } from '@/components/browse/SearchPage';
+import { Subscription } from '@/types';
 import Link from 'next/link';
-import { Sparkles, LayoutGrid, Star, CreditCard } from 'lucide-react';
+import { Sparkles, Home, Search, CreditCard, LayoutGrid } from 'lucide-react';
 
 interface DashboardClientProps {
   userEmail?: string | null;
@@ -18,7 +19,7 @@ interface DashboardClientProps {
   hasTasteProfile: boolean;
 }
 
-type Tab = 'spending' | 'discover' | 'subscriptions';
+type Tab = 'home' | 'search' | 'spending' | 'subscriptions';
 
 interface SpendingStats {
   currentMonthTotal: number;
@@ -33,22 +34,15 @@ interface SpendingStats {
 }
 
 export function DashboardClient({ userEmail, displayName, hasTasteProfile }: DashboardClientProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('spending');
+  const [activeTab, setActiveTab] = useState<Tab>('home');
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [spendingStats, setSpendingStats] = useState<SpendingStats | null>(null);
-  const [recsLoading, setRecsLoading] = useState(false);
-  const [recsError, setRecsError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    const [subsRes, recsRes] = await Promise.all([
-      fetch('/api/subscriptions'),
-      fetch('/api/recommendations'),
-    ]);
-    if (subsRes.ok) setSubscriptions(await subsRes.json());
-    if (recsRes.ok) setRecommendations(await recsRes.json());
+    const res = await fetch('/api/subscriptions');
+    if (res.ok) setSubscriptions(await res.json());
     setInitialLoading(false);
   }, []);
 
@@ -108,148 +102,126 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
     }
   };
 
-  const handleGetRecommendations = async () => {
-    setRecsLoading(true);
-    setRecsError(null);
-    try {
-      const res = await fetch('/api/recommendations', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setRecommendations(prev => [...data, ...prev]);
-      } else {
-        setRecsError(data?.error || 'Failed to generate recommendations. Check that your Anthropic API key is set in .env.local.');
-      }
-    } catch {
-      setRecsError('Network error while fetching recommendations.');
-    } finally {
-      setRecsLoading(false);
-    }
-  };
-
-  const handleFeedback = async (id: string, feedback: 'loved' | 'watched' | 'not_interested') => {
-    await fetch('/api/recommendations', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, user_feedback: feedback }),
-    });
-    setRecommendations(prev =>
-      prev.map(r => r.id === id ? { ...r, user_feedback: feedback } : r)
-    );
-  };
-
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Loading…</div>
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center">
+        <div className="text-gray-500 text-sm">Loading…</div>
       </div>
     );
   }
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'spending', label: 'Spending', icon: <CreditCard size={14} /> },
-    { id: 'discover', label: 'Discover', icon: <Star size={14} /> },
-    { id: 'subscriptions', label: 'Subscriptions', icon: <LayoutGrid size={14} /> },
+  const bottomTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'home',          label: 'Home',    icon: <Home size={20} /> },
+    { id: 'search',        label: 'Search',  icon: <Search size={20} /> },
+    { id: 'spending',      label: 'Spending', icon: <CreditCard size={20} /> },
+    { id: 'subscriptions', label: 'Services', icon: <LayoutGrid size={20} /> },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Navbar userEmail={userEmail} displayName={displayName} />
+    <div className="min-h-screen bg-[#0F0F0F]">
+      {/* Top nav — hide on browse/search tabs to give full-bleed look */}
+      {activeTab !== 'home' && activeTab !== 'search' && (
+        <Navbar userEmail={userEmail} displayName={displayName} />
+      )}
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Taste profile banner */}
-        {!hasTasteProfile && (
+      {/* Taste profile banner — show on home tab only */}
+      {activeTab === 'home' && !hasTasteProfile && (
+        <div className="px-4 pt-4 md:pt-6">
           <Link
             href="/onboarding"
-            className="flex items-center justify-between gap-4 p-4 mb-5 bg-brand/10 border border-brand/25 rounded-xl hover:bg-brand/15 transition-colors group"
+            className="flex items-center justify-between gap-4 p-4 bg-brand/10 border border-brand/25 rounded-xl hover:bg-brand/15 transition-colors group"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-brand/20 flex items-center justify-center">
                 <Sparkles size={16} className="text-brand" />
               </div>
               <div>
-                <p className="text-gray-900 dark:text-white text-sm font-semibold">Set up your taste profile</p>
-                <p className="text-gray-500 dark:text-gray-400 text-xs">Tell us what you love and we'll find perfect picks for you</p>
+                <p className="text-white text-sm font-semibold">Set up your taste profile</p>
+                <p className="text-gray-500 text-xs">Tell us what you love and we'll find perfect picks for you</p>
               </div>
             </div>
             <span className="text-brand text-sm font-medium group-hover:translate-x-0.5 transition-transform">Start →</span>
           </Link>
-        )}
+        </div>
+      )}
 
-        {/* Daily check-in — always visible when user has subscriptions */}
-        {subscriptions.length > 0 && (
-          <CheckInBanner
-            subscriptions={subscriptions}
-            onCheckinComplete={fetchSpendingStats}
-          />
-        )}
+      {/* ── Home Tab: Browse experience ── */}
+      {activeTab === 'home' && <BrowsePage />}
 
-        {/* Tab nav */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl p-1 mb-6">
-          {tabs.map(tab => (
+      {/* ── Search Tab ── */}
+      {activeTab === 'search' && <SearchPage />}
+
+      {/* ── Spending + Subscriptions tabs: use standard layout ── */}
+      {(activeTab === 'spending' || activeTab === 'subscriptions') && (
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+          {/* Check-in banner on spending tab */}
+          {activeTab === 'spending' && subscriptions.length > 0 && (
+            <CheckInBanner
+              subscriptions={subscriptions}
+              onCheckinComplete={fetchSpendingStats}
+            />
+          )}
+
+          {/* ── Spending Tab ── */}
+          {activeTab === 'spending' && (
+            <div>
+              {statsLoading || !spendingStats ? (
+                <div className="text-center py-16 text-gray-500 text-sm">Loading spending data…</div>
+              ) : subscriptions.length === 0 ? (
+                <div className="text-center py-16 border border-dashed border-gray-800 rounded-xl">
+                  <CreditCard size={36} className="mx-auto mb-3 text-brand opacity-60" />
+                  <p className="text-white font-medium">No subscriptions yet</p>
+                  <p className="text-gray-500 text-sm mt-1">Add your subscriptions to see spending insights</p>
+                </div>
+              ) : (
+                <>
+                  <SpendingStatCards stats={spendingStats} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                    <SpendingDonut
+                      data={spendingStats.costPerService}
+                      totalMonthly={spendingStats.currentMonthTotal}
+                    />
+                    <SpendingHistory data={spendingStats.spendingHistory} />
+                  </div>
+                  <CostPerUseTable rows={spendingStats.costPerUse} />
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Subscriptions Tab ── */}
+          {activeTab === 'subscriptions' && (
+            <SubscriptionList
+              subscriptions={subscriptions}
+              onAdd={handleAddSubscription}
+              onDelete={handleDeleteSubscription}
+              onUpdate={handleUpdateSubscription}
+            />
+          )}
+        </main>
+      )}
+
+      {/* ── Mobile bottom navigation ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-800/80 bg-[#0F0F0F]/95 backdrop-blur-md"
+        style={{ height: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex h-full">
+          {bottomTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  ? 'text-white'
+                  : 'text-gray-600 hover:text-gray-400'
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              <span className={activeTab === tab.id ? 'text-brand' : ''}>{tab.icon}</span>
+              <span className="text-[10px] font-medium">{tab.label}</span>
             </button>
           ))}
         </div>
-
-        {/* ── Spending Tab ── */}
-        {activeTab === 'spending' && (
-          <div>
-            {statsLoading || !spendingStats ? (
-              <div className="text-center py-16 text-gray-400 text-sm">Loading spending data…</div>
-            ) : subscriptions.length === 0 ? (
-              <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                <CreditCard size={36} className="mx-auto mb-3 text-brand opacity-60" />
-                <p className="text-gray-900 dark:text-white font-medium">No subscriptions yet</p>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Add your subscriptions to see spending insights</p>
-              </div>
-            ) : (
-              <>
-                <SpendingStatCards stats={spendingStats} />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                  <SpendingDonut
-                    data={spendingStats.costPerService}
-                    totalMonthly={spendingStats.currentMonthTotal}
-                  />
-                  <SpendingHistory data={spendingStats.spendingHistory} />
-                </div>
-                <CostPerUseTable rows={spendingStats.costPerUse} />
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── Discover Tab ── */}
-        {activeTab === 'discover' && (
-          <RecommendationFeed
-            recommendations={recommendations}
-            userServices={subscriptions.map(s => s.service_name)}
-            onGetRecs={handleGetRecommendations}
-            onFeedback={handleFeedback}
-            loading={recsLoading}
-            error={recsError}
-          />
-        )}
-
-        {/* ── Subscriptions Tab ── */}
-        {activeTab === 'subscriptions' && (
-          <SubscriptionList
-            subscriptions={subscriptions}
-            onAdd={handleAddSubscription}
-            onDelete={handleDeleteSubscription}
-            onUpdate={handleUpdateSubscription}
-          />
-        )}
-      </main>
+      </nav>
     </div>
   );
 }

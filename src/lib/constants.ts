@@ -60,3 +60,21 @@ export const GENRES = [
 export const SERVICE_COLORS: Record<string, string> = Object.fromEntries(
   STREAMING_SERVICES.map(s => [s.name, s.color])
 );
+
+// Maps TMDB provider IDs → display info for service badges on content cards
+export const PROVIDER_MAP: Record<number, { name: string; color: string; abbrev: string }> = {
+  8:    { name: 'Netflix',        color: '#E50914', abbrev: 'N'  },
+  9:    { name: 'Amazon Prime',   color: '#00A8E1', abbrev: 'P'  },
+  337:  { name: 'Disney+',        color: '#113CCF', abbrev: 'D+' },
+  15:   { name: 'Hulu',           color: '#1CE783', abbrev: 'H'  },
+  1899: { name: 'HBO Max',        color: '#B147F5', abbrev: 'M'  },
+  350:  { name: 'Apple TV+',      color: '#A2AAAD', abbrev: 'A'  },
+  386:  { name: 'Peacock',        color: '#F5A623', abbrev: 'Pk' },
+  531:  { name: 'Paramount+',     color: '#0064FF', abbrev: 'P+' },
+  283:  { name: 'Crunchyroll',    color: '#F47521', abbrev: 'CR' },
+  2:    { name: 'Apple iTunes',   color: '#A2AAAD', abbrev: 'iT' },
+  3:    { name: 'Google Play',    color: '#4285F4', abbrev: 'GP' },
+  192:  { name: 'YouTube',        color: '#FF0000', abbrev: 'YT' },
+  43:   { name: 'Starz',          color: '#000000', abbrev: 'S'  },
+  1770: { name: 'Paramount+',     color: '#0064FF', abbrev: 'P+' },
+};

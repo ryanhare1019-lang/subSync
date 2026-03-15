@@ -140,6 +140,18 @@ async function searchAndSeed(title: string): Promise<{ tmdbId: number; type: 'mo
   return { tmdbId: top.id, type: top.media_type as 'movie' | 'tv' };
 }
 
+const SERVICE_SEARCH_URLS: Record<string, (title: string) => string> = {
+  'Netflix': (t) => `https://www.netflix.com/search?q=${encodeURIComponent(t)}`,
+  'Hulu': (t) => `https://www.hulu.com/search?q=${encodeURIComponent(t)}`,
+  'Disney+': (t) => `https://www.disneyplus.com/search/${encodeURIComponent(t)}`,
+  'HBO Max': (t) => `https://www.max.com/search?q=${encodeURIComponent(t)}`,
+  'Amazon Prime': (t) => `https://www.amazon.com/s?k=${encodeURIComponent(t)}&i=instant-video`,
+  'Apple TV+': (t) => `https://tv.apple.com/search?term=${encodeURIComponent(t)}`,
+  'Peacock': (t) => `https://www.peacocktv.com/watch/asset/movies/search?q=${encodeURIComponent(t)}`,
+  'Paramount+': (t) => `https://www.paramountplus.com/search/${encodeURIComponent(t)}/`,
+  'Crunchyroll': (t) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}`,
+};
+
 export async function GET() {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -152,7 +164,15 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(30);
 
-  return NextResponse.json(data || []);
+  // Re-attach watch_link from service_name + title (not stored in DB)
+  const enriched = (data || []).map((rec: Record<string, unknown>) => {
+    const service = rec.service_name as string | null;
+    const title = rec.title as string | null;
+    const urlFn = service ? SERVICE_SEARCH_URLS[service] : null;
+    return { ...rec, watch_link: urlFn && title ? urlFn(title) : null };
+  });
+
+  return NextResponse.json(enriched);
 }
 
 export async function POST() {
@@ -285,7 +305,7 @@ export async function POST() {
   const withProviders = await Promise.all(
     filtered.slice(0, 35).map(async (item) => {
       try {
-        const { providerIds, link } = await getWatchProviders(item.id, item._type);
+        const { providerIds, link } = await getWatchProviders(item.id, item._type, item.title || item.name || '');
         // Services the user owns that have this title
         const availableOn = services.filter((s: string) => {
           const pid = VIDEO_PROVIDER_IDS[s];

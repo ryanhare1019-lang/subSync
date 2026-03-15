@@ -6,14 +6,17 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json([]);
 
   const results = await searchTMDB(q);
-  return NextResponse.json(
-    results.slice(0, 8).map(r => ({
-      id: r.id,
-      title: r.media_type === 'movie' ? (r as { title: string }).title : (r as { name: string }).name,
-      year: r.media_type === 'movie'
-        ? (r as { release_date?: string }).release_date?.split('-')[0] || null
-        : (r as { first_air_date?: string }).first_air_date?.split('-')[0] || null,
-      media_type: r.media_type,
-    }))
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return NextResponse.json(results.slice(0, 20).map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    name: r.name,
+    poster_path: r.poster_path ?? null,
+    release_date: r.release_date,
+    first_air_date: r.first_air_date,
+    media_type: r.media_type,
+    vote_average: r.vote_average ?? 0,
+    overview: r.overview ?? '',
+    genre_ids: r.genre_ids ?? [],
+  })));
 }

@@ -436,9 +436,23 @@ export async function discoverByGenres(
   return rows.filter(r => r.results.length > 0);
 }
 
+const SERVICE_SEARCH_URLS_BY_ID: Record<number, (title: string) => string> = {
+  8: (t) => `https://www.netflix.com/search?q=${encodeURIComponent(t)}`,
+  15: (t) => `https://www.hulu.com/search?q=${encodeURIComponent(t)}`,
+  337: (t) => `https://www.disneyplus.com/search/${encodeURIComponent(t)}`,
+  1899: (t) => `https://www.max.com/search?q=${encodeURIComponent(t)}`,
+  9: (t) => `https://www.amazon.com/s?k=${encodeURIComponent(t)}&i=instant-video`,
+  350: (t) => `https://tv.apple.com/search?term=${encodeURIComponent(t)}`,
+  386: (t) => `https://www.peacocktv.com/watch/asset/movies/search?q=${encodeURIComponent(t)}`,
+  531: (t) => `https://www.paramountplus.com/search/${encodeURIComponent(t)}/`,
+  283: (t) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}`,
+  188: (t) => `https://www.youtube.com/results?search_query=${encodeURIComponent(t)}`,
+};
+
 export async function getWatchProviders(
   tmdbId: number,
-  type: 'movie' | 'tv'
+  type: 'movie' | 'tv',
+  title = ''
 ): Promise<{ link: string | null; providerIds: number[] }> {
   if (!API_KEY) return { link: null, providerIds: [] };
   const res = await fetch(`${TMDB_BASE}/${type}/${tmdbId}/watch/providers?api_key=${API_KEY}`);
@@ -446,8 +460,18 @@ export async function getWatchProviders(
   const data = await res.json();
   const us = data.results?.US;
   const flatrate: { provider_id: number }[] = us?.flatrate || [];
-  return {
-    link: us?.link || null,
-    providerIds: flatrate.map(p => p.provider_id),
-  };
+  const providerIds = flatrate.map(p => p.provider_id);
+
+  // Build a direct streaming URL if we have a title and a known provider
+  let link: string | null = null;
+  if (title) {
+    for (const p of flatrate) {
+      const urlFn = SERVICE_SEARCH_URLS_BY_ID[p.provider_id];
+      if (urlFn) { link = urlFn(title); break; }
+    }
+  }
+  // Fall back to JustWatch aggregator link
+  if (!link) link = us?.link || null;
+
+  return { link, providerIds };
 }
