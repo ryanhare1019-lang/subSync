@@ -68,7 +68,6 @@ export const PROVIDER_IDS: Record<string, number> = {
   'Peacock': 386,
   'Paramount+': 531,
   'Crunchyroll': 283,
-  'YouTube Premium': 188,
 };
 
 // Maps taste quiz genre names to TMDB genre IDs, used to filter disliked genres
@@ -337,7 +336,7 @@ async function discoverForProvider(
   const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`);
   if (!res.ok) return [];
   const data = await res.json();
-  return (data.results || []).slice(0, 20).map((r: Record<string, unknown>) =>
+  return (data.results || []).slice(0, 40).map((r: Record<string, unknown>) =>
     mapResult(r, type, [serviceName])
   );
 }
@@ -429,7 +428,7 @@ export async function discoverByGenres(
       return {
         id: row.id,
         name: row.name,
-        results: Array.from(seen.values()).slice(0, 30),
+        results: Array.from(seen.values()).slice(0, 40),
       };
     })
   );

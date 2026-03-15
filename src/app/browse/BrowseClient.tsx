@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { BrowseResult, GenreRow } from '@/lib/tmdb';
 import Image from 'next/image';
-import { Film, Tv, Star, SortAsc, ThumbsUp, ThumbsDown, HelpCircle, Search, X, Music, Loader2, ChevronRight } from 'lucide-react';
+import { Film, Tv, Star, SortAsc, ThumbsUp, ThumbsDown, HelpCircle, Search, X, Music, Loader2, ChevronRight, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ServiceBadge, ServiceIcon } from '@/components/ServiceIcon';
-import { BILLING_URLS, MUSIC_PLAYER_URLS, SERVICE_SEARCH_URLS } from '@/lib/constants';
+import { MUSIC_PLAYER_URLS, SERVICE_SEARCH_URLS } from '@/lib/constants';
 
 interface BrowseClientProps {
   userEmail?: string | null;
@@ -24,23 +24,77 @@ interface SearchResult {
   poster_url: string | null;
   available_on: string[];
   watch_link: string | null;
+  is_similar_suggestion?: boolean;
+}
+
+interface BecauseYouLikedData {
+  source: { title: string; tmdb_id: number; media_type: string };
+  recommendations: BrowseResult[];
 }
 
 const POSTER_W = 190;
 const FEEDBACK_EVERY = 8; // show feedback card every N rows
+const BECAUSE_EVERY = 12; // show "because you liked" every N rows
+
+const MUSIC_GENRES = [
+  'Pop', 'Rock', 'Hip-Hop', 'R&B/Soul', 'Jazz', 'Classical', 'Electronic', 'Country',
+  'Metal', 'Punk', 'Folk', 'Indie', 'Alternative', 'Blues', 'Reggae', 'Latin',
+  'K-Pop', 'J-Pop', 'Afrobeats', 'Disco', 'Funk', 'Ambient', 'Lo-fi Hip-Hop',
+  'Synthwave', 'Trap', 'Drill', 'Emo', 'Shoegaze', 'Post-Rock', 'Math Rock',
+  'Prog Rock', 'Psychedelic', 'Bossa Nova', 'Salsa', 'Flamenco', 'New Age',
+  'Gospel', 'Ska', 'Grunge', 'Industrial', 'Techno', 'House', 'Trance',
+  'Drum & Bass', 'Dubstep', 'Chillout', 'Vaporwave', 'Bedroom Pop', 'Phonk',
+  'Midwest Emo', 'Post-Punk', 'Darkwave', 'New Wave', 'Art Rock', 'Glam Rock',
+  '80s Pop', '90s R&B', '2000s Hip-Hop', 'Soundtrack & Score', 'Choral & Orchestral',
+  'Video Game Music', 'Holiday', 'World Music', 'Afro-Latin', 'Turkish Pop', 'Arabic Pop',
+];
+
+const GENRE_COLORS = [
+  '#279AF1', '#C49991', '#F59E0B', '#10B981', '#8B5CF6', '#EF4444',
+  '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#14B8A6', '#A78BFA',
+  '#FB923C', '#34D399', '#60A5FA', '#F472B6', '#4ADE80', '#FBBF24',
+];
 
 function openOnService(item: BrowseResult) {
-  // Use known service from discovery for instant direct link
   const firstService = item.services[0];
   if (firstService && SERVICE_SEARCH_URLS[firstService]) {
     window.open(SERVICE_SEARCH_URLS[firstService](item.title), '_blank', 'noopener,noreferrer');
     return;
   }
-  // Fallback: ask the server
   fetch(`/api/watch-link?id=${item.id}&type=${item.media_type}`)
     .then(r => r.json())
     .then(d => { if (d.link) window.open(d.link, '_blank', 'noopener,noreferrer'); })
     .catch(() => null);
+}
+
+function BecauseYouLikedEvent({ source, recommendations, onDismiss }: {
+  source: { title: string };
+  recommendations: BrowseResult[];
+  onDismiss: () => void;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+      className="mb-10 bg-white dark:bg-gray-900 border border-copper/30 rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+          <span style={{ color: 'var(--color-copper)' }}>Because you loved</span> {source.title}, you might enjoy:
+        </p>
+        <button onClick={onDismiss} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 text-xs">✕</button>
+      </div>
+      <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {recommendations.slice(0, 10).map(item => (
+          <div key={item.id} style={{ width: 80, flexShrink: 0 }}
+            className="cursor-pointer group"
+            onClick={() => openOnService(item)}>
+            <div className="aspect-[2/3] relative rounded-lg overflow-hidden bg-gray-800">
+              {item.poster_url && <Image src={item.poster_url} alt={item.title} fill className="object-cover group-hover:scale-105 transition-transform" sizes="80px" />}
+            </div>
+            <p className="text-gray-700 dark:text-gray-300 text-xs mt-1 leading-tight line-clamp-2">{item.title}</p>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
 }
 
 function BrowseFeedbackCard({ item, type, onDismiss }: {
@@ -126,17 +180,6 @@ function PosterCard({ item, type, onFeedback }: {
           </div>
         )}
 
-        {/* Service badges bottom-left (fades on hover) */}
-        {item.services.length > 0 && (
-          <div className="absolute bottom-1.5 left-1.5 flex gap-1 group-hover:opacity-0 transition-opacity">
-            {item.services.slice(0, 3).map(svc => (
-              <div key={svc} className="w-5 h-5 rounded bg-black/80 backdrop-blur-sm flex items-center justify-center" title={svc}>
-                <ServiceIcon name={svc} size={12} variant="white" />
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
           {/* Feedback buttons top */}
@@ -184,7 +227,7 @@ function PosterCard({ item, type, onFeedback }: {
         {item.services.length > 0 && (
           <div className="flex gap-0.5 ml-auto">
             {item.services.slice(0, 2).map(svc => (
-              <ServiceIcon key={svc} name={svc} size={12} variant="brand" className="opacity-75" />
+              <ServiceIcon key={svc} name={svc} size={16} variant="brand" className="opacity-80" />
             ))}
           </div>
         )}
@@ -212,8 +255,10 @@ function HorizontalRow({ row, type, onFeedback }: {
 
 function MusicTab({ userServices }: { userServices: string[] }) {
   const musicServices = userServices.filter(s => ['Spotify', 'Apple Music', 'Tidal'].includes(s));
+
   return (
-    <div className="max-w-2xl">
+    <div>
+      {/* Connected services */}
       {musicServices.length > 0 && (
         <div className="mb-8">
           <h2 className="text-gray-900 dark:text-white text-lg font-bold mb-3">Your Music Services</h2>
@@ -234,19 +279,55 @@ function MusicTab({ userServices }: { userServices: string[] }) {
           </div>
         </div>
       )}
-      <div className="text-center py-14 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-        <Music size={40} className="mx-auto mb-4 text-brand opacity-60" />
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Music Discovery Coming Soon</h2>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
-          Connect your music services to discover new artists and albums tailored to your taste.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          {(['Spotify', 'Apple Music', 'Tidal'] as const).filter(s => !musicServices.includes(s)).map(svc => (
-            <button key={svc} onClick={() => window.open(BILLING_URLS[svc], '_blank', 'noopener,noreferrer')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-sm hover:border-brand/40 transition-colors">
-              <ServiceIcon name={svc} size={16} variant="brand" /> Connect {svc}
-            </button>
-          ))}
+
+      {/* Spotify connect */}
+      <div className="mb-8 p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1DB95418', border: '1px solid #1DB95433' }}>
+            <ServiceIcon name="Spotify" size={22} variant="brand" />
+          </div>
+          <div className="flex-1">
+            <p className="text-gray-900 dark:text-white font-semibold text-sm">Connect Spotify for personalized picks</p>
+            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Based on your listening history, we&apos;ll surface music you&apos;ll love.</p>
+          </div>
+          <a href="/api/spotify/auth"
+            className="flex-shrink-0 flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-[#1DB954] text-white hover:bg-[#1aa34a] transition-colors font-medium">
+            Connect <ExternalLink size={11} />
+          </a>
+        </div>
+      </div>
+
+      {/* Genre grid */}
+      <div className="mb-4">
+        <h2 className="text-gray-900 dark:text-white text-lg font-bold mb-1">Explore by Genre</h2>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-5">Click any genre to search on Spotify.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {MUSIC_GENRES.map((genre, i) => {
+            const color = GENRE_COLORS[i % GENRE_COLORS.length];
+            const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(genre + ' music')}`;
+            return (
+              <a
+                key={genre}
+                href={spotifyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col justify-between rounded-xl p-3.5 cursor-pointer hover:scale-[1.03] transition-all group"
+                style={{
+                  backgroundColor: color + '14',
+                  border: `1px solid ${color}30`,
+                  minHeight: 80,
+                }}
+              >
+                <span className="font-semibold text-sm leading-tight" style={{ color }}>
+                  {genre}
+                </span>
+                <div className="flex items-center gap-1 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <ExternalLink size={10} style={{ color }} />
+                  <span className="text-xs" style={{ color }}>Spotify</span>
+                </div>
+              </a>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -275,7 +356,12 @@ function SearchPanel({ results, loading, query, onOpenService }: {
             {r.poster_url && <Image src={r.poster_url} alt={r.title} fill className="object-cover" sizes="48px" />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-gray-900 dark:text-white font-semibold text-sm leading-tight">{r.title}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-gray-900 dark:text-white font-semibold text-sm leading-tight">{r.title}</p>
+              {r.is_similar_suggestion && (
+                <span className="text-xs px-1.5 py-0.5 rounded-md bg-brand/10 text-brand border border-brand/20 flex-shrink-0">Similar</span>
+              )}
+            </div>
             <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 capitalize">{r.media_type} {r.year && `(${r.year})`}</p>
             {r.available_on.length > 0 ? (
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -317,7 +403,10 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [dismissedFeedback, setDismissedFeedback] = useState<Set<string>>(new Set());
   const [shownInFeedback, setShownInFeedback] = useState<Set<number>>(new Set());
+  const [becauseYouLiked, setBecauseYouLiked] = useState<BecauseYouLikedData | null>(null);
+  const [becauseDismissed, setBecauseDismissed] = useState(false);
   const searchRef = useRef<NodeJS.Timeout | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const BATCH = 15;
   const firstName = displayName?.split(' ')[0] || displayName || 'you';
 
@@ -344,6 +433,33 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
       loadBatch(tab, sortBy, 0, true);
     }
   }, [tab, sortBy, loadBatch]);
+
+  // Fetch "because you liked" data on mount
+  useEffect(() => {
+    fetch('/api/because-you-liked')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.source && data.recommendations?.length > 0) {
+          setBecauseYouLiked(data);
+        }
+      })
+      .catch(() => null);
+  }, []);
+
+  // Infinite scroll sentinel
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadBatch(tab as 'movie' | 'tv', sortBy, genres.length, false);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, tab, sortBy, genres.length, loadBatch]);
 
   // Debounced search
   useEffect(() => {
@@ -384,7 +500,6 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
     setShownInFeedback(prev => new Set([...prev, itemId]));
   };
 
-  const videoServices = serviceNames.filter(s => BILLING_URLS[s]);
   const isSearching = searchQuery.trim().length >= 2;
 
   const openSearchResult = (r: SearchResult) => {
@@ -405,16 +520,6 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Picked for <span className="text-brand">{firstName}</span>
           </h1>
-          {videoServices.length > 0 && (
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-gray-500 dark:text-gray-400 text-sm">From:</span>
-              {videoServices.map(svc => (
-                <button key={svc} onClick={() => window.open(BILLING_URLS[svc], '_blank', 'noopener,noreferrer')} className="hover:opacity-80 transition-opacity" title={svc}>
-                  <ServiceBadge name={svc} size={28} />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Search bar */}
@@ -484,6 +589,7 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
                 const feedbackKey = `feedback-${i}`;
                 const showFeedback = (i + 1) % FEEDBACK_EVERY === 0 && !dismissedFeedback.has(feedbackKey);
                 const feedbackItem = showFeedback ? getFeedbackItem(i) : null;
+                const showBecause = (i + 1) % BECAUSE_EVERY === 0 && !becauseDismissed && becauseYouLiked;
 
                 return (
                   <div key={row.id}>
@@ -495,22 +601,24 @@ export function BrowseClient({ userEmail, displayName }: BrowseClientProps) {
                         onDismiss={() => handleFeedbackDismiss(feedbackKey, feedbackItem.id)}
                       />
                     )}
+                    {showBecause && becauseYouLiked && (
+                      <BecauseYouLikedEvent
+                        source={becauseYouLiked.source}
+                        recommendations={becauseYouLiked.recommendations}
+                        onDismiss={() => setBecauseDismissed(true)}
+                      />
+                    )}
                   </div>
                 );
               })}
             </AnimatePresence>
 
-            {/* Load more */}
-            {hasMore && (
-              <div className="text-center mt-4 mb-12">
-                <button
-                  onClick={() => loadBatch(tab as 'movie' | 'tv', sortBy, genres.length, false)}
-                  disabled={loadingMore}
-                  className="flex items-center gap-2 mx-auto px-6 py-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:border-brand/40 transition-colors disabled:opacity-50"
-                >
-                  {loadingMore ? <Loader2 size={15} className="animate-spin" /> : null}
-                  {loadingMore ? 'Loading more...' : 'Show more genres'}
-                </button>
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+
+            {loadingMore && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={20} className="animate-spin text-brand" />
               </div>
             )}
           </div>

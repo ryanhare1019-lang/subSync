@@ -3,9 +3,12 @@
 @variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  --color-brand: #D946EF;
-  --color-brand-hover: #C026D3;
-  --color-brand-light: #E879F9;
+  --color-brand: #279AF1;
+  --color-brand-hover: #1a8ad6;
+  --color-brand-light: #61b5f4;
+  --color-copper: #C49991;
+  --color-gray-50: #F7F7FF;
+  --color-gray-950: #131112;
 }
 
 body {

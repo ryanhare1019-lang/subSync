@@ -22,6 +22,16 @@ interface AddSubscriptionProps {
   }) => Promise<void>;
 }
 
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
+function formatDate(dateStr: string) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) {
   const [selected, setSelected] = useState<ServiceOption | null>(null);
   const [customName, setCustomName] = useState('');
@@ -30,7 +40,7 @@ export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) 
   const [isTrial, setIsTrial] = useState(false);
   const [renewal, setRenewal] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'pick' | 'details'>('pick');
+  const [step, setStep] = useState<'pick' | 'details' | 'confirm'>('pick');
 
   const reset = () => {
     setStep('pick'); setSelected(null); setCustomName('');
@@ -61,6 +71,9 @@ export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) 
 
   const inputCls = "w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-brand text-sm";
 
+  const serviceName = selected ? selected.name : customName;
+  const serviceColor = SERVICE_COLORS[serviceName] || '#279AF1';
+
   return (
     <Modal open={open} onClose={() => { reset(); onClose(); }} title="Add Subscription">
       {step === 'pick' ? (
@@ -68,7 +81,7 @@ export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) 
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Select a service:</p>
           <div className="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
             {STREAMING_SERVICES.map(svc => {
-              const color = SERVICE_COLORS[svc.name] || '#D946EF';
+              const color = SERVICE_COLORS[svc.name] || '#279AF1';
               return (
                 <button key={svc.name} onClick={() => handleServicePick(svc)}
                   className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand/40 transition-all text-center">
@@ -89,14 +102,14 @@ export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) 
             </button>
           </div>
         </div>
-      ) : (
+      ) : step === 'details' ? (
         <div className="space-y-4">
           <button onClick={reset} className="text-gray-400 hover:text-gray-600 dark:hover:text-white text-sm transition-colors">← Back</button>
 
           {selected ? (
             <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: (SERVICE_COLORS[selected.name] || '#D946EF') + '18' }}>
+                style={{ backgroundColor: (SERVICE_COLORS[selected.name] || '#279AF1') + '18' }}>
                 <ServiceIcon name={selected.name} size={18} variant="brand" />
               </div>
               <span className="text-gray-900 dark:text-white font-medium">{selected.name}</span>
@@ -142,7 +155,65 @@ export function AddSubscription({ open, onClose, onAdd }: AddSubscriptionProps) 
             <span className="text-gray-500 dark:text-gray-400 text-sm">This is a free trial</span>
           </label>
 
-          <Button onClick={handleSubmit} loading={loading} className="w-full">Add Subscription</Button>
+          <Button
+            onClick={() => {
+              if (!cost || (!selected && !customName)) return;
+              setStep('confirm');
+            }}
+            className="w-full"
+          >
+            Review & Confirm
+          </Button>
+        </div>
+      ) : (
+        /* Confirm step */
+        <div className="space-y-5">
+          <button onClick={() => setStep('details')} className="text-gray-400 hover:text-gray-600 dark:hover:text-white text-sm transition-colors">← Back</button>
+
+          {/* Service display */}
+          <div className="flex flex-col items-center gap-3 py-4">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: serviceColor + '18', border: `2px solid ${serviceColor}44` }}>
+              {selected ? (
+                <ServiceIcon name={selected.name} size={36} variant="brand" />
+              ) : (
+                <span className="text-2xl font-bold" style={{ color: serviceColor }}>
+                  {serviceName[0]}
+                </span>
+              )}
+            </div>
+            <p className="text-gray-900 dark:text-white text-lg font-bold">{serviceName}</p>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400 text-sm">Price</span>
+              <span className="text-gray-900 dark:text-white font-semibold">
+                {formatCurrency(parseFloat(cost || '0'))}<span className="text-gray-400 font-normal text-xs">/mo</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400 text-sm">Billing cycle</span>
+              <span className="text-gray-900 dark:text-white font-medium capitalize">{cycle}</span>
+            </div>
+            {renewal && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400 text-sm">Next renewal</span>
+                <span className="text-gray-900 dark:text-white font-medium">{formatDate(renewal)}</span>
+              </div>
+            )}
+            {isTrial && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400 text-sm">Trial</span>
+                <span className="text-amber-600 dark:text-amber-400 text-sm font-medium">Free trial</span>
+              </div>
+            )}
+          </div>
+
+          <Button onClick={handleSubmit} loading={loading} className="w-full">
+            <Check size={15} /> Confirm &amp; Add
+          </Button>
         </div>
       )}
     </Modal>

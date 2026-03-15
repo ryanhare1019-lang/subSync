@@ -10,7 +10,6 @@ export const STREAMING_SERVICES: ServiceOption[] = [
   { name: 'Peacock', type: 'streaming_video', defaultCost: 5.99, color: '#F5A623', bgColor: 'bg-amber-950' },
   { name: 'Paramount+', type: 'streaming_video', defaultCost: 5.99, color: '#0064FF', bgColor: 'bg-blue-950' },
   { name: 'Crunchyroll', type: 'streaming_video', defaultCost: 7.99, color: '#F47521', bgColor: 'bg-orange-950' },
-  { name: 'YouTube Premium', type: 'streaming_video', defaultCost: 13.99, color: '#FF0000', bgColor: 'bg-red-950' },
   { name: 'Spotify', type: 'streaming_music', defaultCost: 10.99, color: '#1DB954', bgColor: 'bg-green-950' },
   { name: 'Apple Music', type: 'streaming_music', defaultCost: 10.99, color: '#FC3C44', bgColor: 'bg-red-950' },
   { name: 'Tidal', type: 'streaming_music', defaultCost: 10.99, color: '#00FFFF', bgColor: 'bg-cyan-950' },
@@ -28,10 +27,25 @@ export const SERVICE_ICON_SLUGS: Record<string, string> = {
   'Peacock': 'peacocktv',
   'Paramount+': 'paramountplus',
   'Crunchyroll': 'crunchyroll',
-  'YouTube Premium': 'youtube',
   'Spotify': 'spotify',
   'Apple Music': 'applemusic',
   'Tidal': 'tidal',
+};
+
+// Clearbit-friendly domains for real colored logos
+export const SERVICE_LOGO_DOMAINS: Record<string, string> = {
+  'Netflix': 'netflix.com',
+  'Hulu': 'hulu.com',
+  'Disney+': 'disneyplus.com',
+  'HBO Max': 'max.com',
+  'Amazon Prime': 'primevideo.com',
+  'Apple TV+': 'tv.apple.com',
+  'Peacock': 'peacocktv.com',
+  'Paramount+': 'paramountplus.com',
+  'Crunchyroll': 'crunchyroll.com',
+  'Spotify': 'spotify.com',
+  'Apple Music': 'music.apple.com',
+  'Tidal': 'tidal.com',
 };
 
 // Billing / account management pages
@@ -45,7 +59,6 @@ export const BILLING_URLS: Record<string, string> = {
   'Peacock': 'https://www.peacocktv.com/account',
   'Paramount+': 'https://www.paramountplus.com/account/cancel/',
   'Crunchyroll': 'https://www.crunchyroll.com/account/membership',
-  'YouTube Premium': 'https://www.youtube.com/paid_memberships',
   'Spotify': 'https://www.spotify.com/account/subscription/',
   'Apple Music': 'https://apps.apple.com/account/subscriptions',
   'Tidal': 'https://account.tidal.com',
@@ -62,7 +75,6 @@ export const SERVICE_SEARCH_URLS: Record<string, (title: string) => string> = {
   'Peacock': (t) => `https://www.peacocktv.com/watch/asset/movies/search?q=${encodeURIComponent(t)}`,
   'Paramount+': (t) => `https://www.paramountplus.com/search/${encodeURIComponent(t)}/`,
   'Crunchyroll': (t) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}`,
-  'YouTube Premium': (t) => `https://www.youtube.com/results?search_query=${encodeURIComponent(t)}`,
 };
 
 // Direct music player links (not billing)

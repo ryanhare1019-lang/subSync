@@ -21,6 +21,7 @@ export function SubscriptionCard({ subscription, onDelete, onUpdate }: Subscript
   const [cycle, setCycle] = useState(subscription.billing_cycle);
   const [renewal, setRenewal] = useState(subscription.next_renewal || '');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const accentColor = SERVICE_COLORS[subscription.service_name] || '#D946EF';
   const billingUrl = BILLING_URLS[subscription.service_name];
@@ -103,11 +104,25 @@ export function SubscriptionCard({ subscription, onDelete, onUpdate }: Subscript
         {editing ? (
           <>
             <Button size="sm" onClick={handleSave} loading={saving} className="h-7 px-2"><Check size={13} /></Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="h-7 px-2"><X size={13} /></Button>
-            <button onClick={() => onDelete(subscription.id)}
-              className="text-red-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
-              <Trash2 size={13} />
-            </button>
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setConfirmDelete(false); }} className="h-7 px-2"><X size={13} /></Button>
+            {confirmDelete ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Remove?</span>
+                <button onClick={() => onDelete(subscription.id)}
+                  className="text-xs px-2 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors font-medium">
+                  Yes
+                </button>
+                <button onClick={() => setConfirmDelete(false)}
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  No
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)}
+                className="text-red-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Trash2 size={13} />
+              </button>
+            )}
           </>
         ) : (
           <>

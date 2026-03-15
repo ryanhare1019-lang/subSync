@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recommendation } from '@/types';
 import { Button } from './ui/Button';
-import { Star, Heart, Check, X, Film, Tv, Music, BookOpen, Mic, RefreshCw } from 'lucide-react';
+import { Star, Heart, SkipForward, X, Film, Tv, Music, BookOpen, Mic, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 
 interface RecommendationFeedProps {
@@ -28,10 +28,11 @@ const MediaIcon = ({ type }: { type: string }) => {
   }
 };
 
-function RecCard({ rec, userServices, onFeedback }: {
+function RecCard({ rec, userServices, onFeedback, onSkip }: {
   rec: Recommendation;
   userServices: string[];
   onFeedback: (id: string, feedback: 'loved' | 'watched' | 'not_interested') => Promise<void>;
+  onSkip: (id: string) => void;
 }) {
   const [feedback, setFeedback] = useState(rec.user_feedback);
   const [busy, setBusy] = useState(false);
@@ -98,7 +99,6 @@ function RecCard({ rec, userServices, onFeedback }: {
         <div className="flex items-center gap-1.5 mt-3">
           {[
             { type: 'loved' as const, icon: <Heart size={11} className={feedback === 'loved' ? 'fill-current' : ''} />, label: 'Loved', active: 'bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30', base: 'text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 border-gray-200 dark:border-gray-700' },
-            { type: 'watched' as const, icon: <Check size={11} />, label: 'Watched', active: 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30', base: 'text-gray-400 dark:text-gray-500 hover:text-emerald-500 dark:hover:text-emerald-400 border-gray-200 dark:border-gray-700' },
             { type: 'not_interested' as const, icon: <X size={11} />, label: 'Not for me', active: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600', base: 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border-gray-200 dark:border-gray-700' },
           ].map(btn => (
             <button
@@ -110,6 +110,13 @@ function RecCard({ rec, userServices, onFeedback }: {
               {btn.icon} {btn.label}
             </button>
           ))}
+          <button
+            onClick={() => onSkip(rec.id)}
+            disabled={busy}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-all bg-transparent border text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border-gray-200 dark:border-gray-700"
+          >
+            <SkipForward size={11} /> Skip
+          </button>
         </div>
       </div>
     </motion.div>
@@ -117,6 +124,14 @@ function RecCard({ rec, userServices, onFeedback }: {
 }
 
 export function RecommendationFeed({ recommendations, userServices, onGetRecs, onFeedback, loading, error }: RecommendationFeedProps) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  const handleSkip = (id: string) => {
+    setDismissed(prev => new Set([...prev, id]));
+  };
+
+  const visibleRecs = recommendations.filter(r => !dismissed.has(r.id));
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -135,12 +150,12 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
           {error}
         </div>
       )}
-      {recommendations.length === 0 && !loading ? (
+      {visibleRecs.length === 0 && !loading ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <Star size={36} className="mx-auto mb-3 text-brand opacity-60" />
           <p className="text-gray-900 dark:text-white font-medium">Nothing here yet</p>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 mb-4 max-w-xs mx-auto">
-            Set up your taste profile and we'll find shows, movies, and more that match your vibe.
+            Set up your taste profile and we&apos;ll find shows, movies, and more that match your vibe.
           </p>
           <Button onClick={onGetRecs} loading={loading}>
             Find my picks
@@ -160,8 +175,8 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
                 </div>
               </div>
             )}
-            {recommendations.map(rec => (
-              <RecCard key={rec.id} rec={rec} userServices={userServices} onFeedback={onFeedback} />
+            {visibleRecs.map(rec => (
+              <RecCard key={rec.id} rec={rec} userServices={userServices} onFeedback={onFeedback} onSkip={handleSkip} />
             ))}
           </div>
         </AnimatePresence>
