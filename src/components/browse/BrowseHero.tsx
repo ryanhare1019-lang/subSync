@@ -37,8 +37,8 @@ export function BrowseHero({ hero, onMoreInfo }: BrowseHeroProps) {
       )}
 
       {/* Gradient overlays */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-[#0F0F0F]/30 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0F0F0F]/70 via-[#0F0F0F]/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-transparent" />
 
       {/* Content */}
       <div className="absolute bottom-0 left-0 p-5 md:p-10 max-w-xl">

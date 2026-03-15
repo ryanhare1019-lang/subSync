@@ -8,10 +8,9 @@ import { SpendingStatCards } from '@/components/SpendingStatCards';
 import { SpendingDonut, SpendingHistory } from '@/components/SpendingCharts';
 import { CostPerUseTable } from '@/components/CostPerUseTable';
 import { BrowsePage } from '@/components/browse/BrowsePage';
-import { SearchPage } from '@/components/browse/SearchPage';
 import { Subscription } from '@/types';
 import Link from 'next/link';
-import { Sparkles, Home, Search, CreditCard, LayoutGrid } from 'lucide-react';
+import { Sparkles, CreditCard } from 'lucide-react';
 
 interface DashboardClientProps {
   userEmail?: string | null;
@@ -19,7 +18,7 @@ interface DashboardClientProps {
   hasTasteProfile: boolean;
 }
 
-type Tab = 'home' | 'search' | 'spending' | 'subscriptions';
+type Tab = 'home' | 'spending';
 
 interface SpendingStats {
   currentMonthTotal: number;
@@ -32,6 +31,11 @@ interface SpendingStats {
   costPerUse: Array<{ service_name: string; monthly_cost: number; activity_count: number; cost_per_use: number | null }>;
   spendingHistory: Array<{ month: string; total: number }>;
 }
+
+const NAV_TABS = [
+  { id: 'home' as Tab, label: 'Home' },
+  { id: 'spending' as Tab, label: 'Spending' },
+];
 
 export function DashboardClient({ userEmail, displayName, hasTasteProfile }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>('home');
@@ -104,124 +108,95 @@ export function DashboardClient({ userEmail, displayName, hasTasteProfile }: Das
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Loading…</div>
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading…</div>
       </div>
     );
   }
 
-  const bottomTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'home',          label: 'Home',    icon: <Home size={20} /> },
-    { id: 'search',        label: 'Search',  icon: <Search size={20} /> },
-    { id: 'spending',      label: 'Spending', icon: <CreditCard size={20} /> },
-    { id: 'subscriptions', label: 'Services', icon: <LayoutGrid size={20} /> },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#0F0F0F]">
-      {/* Top nav — hide on browse/search tabs to give full-bleed look */}
-      {activeTab !== 'home' && activeTab !== 'search' && (
-        <Navbar userEmail={userEmail} displayName={displayName} />
-      )}
+    <div className="min-h-screen bg-white dark:bg-gray-950">
+      <Navbar
+        userEmail={userEmail}
+        displayName={displayName}
+        tabs={NAV_TABS}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as Tab)}
+      />
 
-      {/* Taste profile banner — show on home tab only */}
-      {activeTab === 'home' && !hasTasteProfile && (
-        <div className="px-4 pt-4 md:pt-6">
-          <Link
-            href="/onboarding"
-            className="flex items-center justify-between gap-4 p-4 bg-brand/10 border border-brand/25 rounded-xl hover:bg-brand/15 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-brand/20 flex items-center justify-center">
-                <Sparkles size={16} className="text-brand" />
-              </div>
-              <div>
-                <p className="text-white text-sm font-semibold">Set up your taste profile</p>
-                <p className="text-gray-500 text-xs">Tell us what you love and we'll find perfect picks for you</p>
-              </div>
+      {/* ── Home Tab: Browse + Search ── */}
+      {activeTab === 'home' && (
+        <>
+          {/* Taste profile banner */}
+          {!hasTasteProfile && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+              <Link
+                href="/onboarding"
+                className="flex items-center justify-between gap-4 p-4 bg-brand/10 border border-brand/25 rounded-xl hover:bg-brand/15 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-brand/20 flex items-center justify-center">
+                    <Sparkles size={16} className="text-brand" />
+                  </div>
+                  <div>
+                    <p className="text-gray-900 dark:text-white text-sm font-semibold">Set up your taste profile</p>
+                    <p className="text-gray-500 text-xs">Tell us what you love and we&apos;ll find perfect picks for you</p>
+                  </div>
+                </div>
+                <span className="text-brand text-sm font-medium group-hover:translate-x-0.5 transition-transform">Start →</span>
+              </Link>
             </div>
-            <span className="text-brand text-sm font-medium group-hover:translate-x-0.5 transition-transform">Start →</span>
-          </Link>
-        </div>
+          )}
+          <BrowsePage />
+        </>
       )}
 
-      {/* ── Home Tab: Browse experience ── */}
-      {activeTab === 'home' && <BrowsePage />}
-
-      {/* ── Search Tab ── */}
-      {activeTab === 'search' && <SearchPage />}
-
-      {/* ── Spending + Subscriptions tabs: use standard layout ── */}
-      {(activeTab === 'spending' || activeTab === 'subscriptions') && (
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
-          {/* Check-in banner on spending tab */}
-          {activeTab === 'spending' && subscriptions.length > 0 && (
+      {/* ── Spending Tab: Stats + Services ── */}
+      {activeTab === 'spending' && (
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-10">
+          {/* Check-in banner */}
+          {subscriptions.length > 0 && (
             <CheckInBanner
               subscriptions={subscriptions}
               onCheckinComplete={fetchSpendingStats}
             />
           )}
 
-          {/* ── Spending Tab ── */}
-          {activeTab === 'spending' && (
-            <div>
-              {statsLoading || !spendingStats ? (
-                <div className="text-center py-16 text-gray-500 text-sm">Loading spending data…</div>
-              ) : subscriptions.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-gray-800 rounded-xl">
-                  <CreditCard size={36} className="mx-auto mb-3 text-brand opacity-60" />
-                  <p className="text-white font-medium">No subscriptions yet</p>
-                  <p className="text-gray-500 text-sm mt-1">Add your subscriptions to see spending insights</p>
-                </div>
-              ) : (
-                <>
-                  <SpendingStatCards stats={spendingStats} />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                    <SpendingDonut
-                      data={spendingStats.costPerService}
-                      totalMonthly={spendingStats.currentMonthTotal}
-                    />
-                    <SpendingHistory data={spendingStats.spendingHistory} />
-                  </div>
-                  <CostPerUseTable rows={spendingStats.costPerUse} />
-                </>
-              )}
+          {/* Spending stats */}
+          {statsLoading || !spendingStats ? (
+            <div className="text-center py-16 text-gray-400 text-sm">Loading spending data…</div>
+          ) : subscriptions.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
+              <CreditCard size={36} className="mx-auto mb-3 text-brand opacity-60" />
+              <p className="text-gray-900 dark:text-white font-medium">No subscriptions yet</p>
+              <p className="text-gray-500 text-sm mt-1">Add your subscriptions below to see spending insights</p>
             </div>
+          ) : (
+            <>
+              <SpendingStatCards stats={spendingStats} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                <SpendingDonut
+                  data={spendingStats.costPerService}
+                  totalMonthly={spendingStats.currentMonthTotal}
+                />
+                <SpendingHistory data={spendingStats.spendingHistory} />
+              </div>
+              <CostPerUseTable rows={spendingStats.costPerUse} />
+            </>
           )}
 
-          {/* ── Subscriptions Tab ── */}
-          {activeTab === 'subscriptions' && (
+          {/* Services section */}
+          <div className="mt-10">
+            <h2 className="text-gray-900 dark:text-white text-lg font-bold mb-4">My Services</h2>
             <SubscriptionList
               subscriptions={subscriptions}
               onAdd={handleAddSubscription}
               onDelete={handleDeleteSubscription}
               onUpdate={handleUpdateSubscription}
             />
-          )}
+          </div>
         </main>
       )}
-
-      {/* ── Mobile bottom navigation ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-800/80 bg-[#0F0F0F]/95 backdrop-blur-md"
-        style={{ height: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="flex h-full">
-          {bottomTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                activeTab === tab.id
-                  ? 'text-white'
-                  : 'text-gray-600 hover:text-gray-400'
-              }`}
-            >
-              <span className={activeTab === tab.id ? 'text-brand' : ''}>{tab.icon}</span>
-              <span className="text-[10px] font-medium">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
     </div>
   );
 }

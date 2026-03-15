@@ -87,20 +87,20 @@ export function SearchPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] px-4 pt-6 pb-24">
+    <div className="min-h-screen bg-white dark:bg-gray-950 px-4 pt-6 pb-10">
       {/* Header */}
-      <h1 className="text-white text-[22px] font-bold mb-4">Search</h1>
+      <h1 className="text-gray-900 dark:text-white text-[22px] font-bold mb-4">Search</h1>
 
       {/* Search input */}
       <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Search movies & TV shows…"
-          className="w-full bg-gray-800/80 border border-gray-700/50 rounded-xl pl-9 pr-9 py-3 text-white text-[15px] placeholder-gray-500 outline-none focus:border-gray-600 transition-colors"
+          className="w-full bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/50 rounded-xl pl-9 pr-9 py-3 text-gray-900 dark:text-white text-[15px] placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-brand transition-colors"
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
@@ -124,8 +124,8 @@ export function SearchPage() {
               onClick={() => setFilter(f.id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
                 filter === f.id
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                  ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               {f.icon}
@@ -138,7 +138,7 @@ export function SearchPage() {
       {/* Loading */}
       {loading && (
         <div className="flex justify-center py-12">
-          <div className="w-5 h-5 border-2 border-gray-700 border-t-gray-400 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-gray-200 dark:border-gray-700 border-t-gray-500 dark:border-t-gray-400 rounded-full animate-spin" />
         </div>
       )}
 
@@ -154,13 +154,13 @@ export function SearchPage() {
       {/* Empty state */}
       {!loading && query.trim() && filtered.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-gray-500 text-sm">No results for &ldquo;{query}&rdquo;</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">No results for &ldquo;{query}&rdquo;</p>
         </div>
       )}
 
       {/* No query state */}
       {!query && !loading && (
-        <div className="text-center py-16 text-gray-600 text-sm">
+        <div className="text-center py-16 text-gray-400 dark:text-gray-600 text-sm">
           Start typing to search movies and TV shows
         </div>
       )}
