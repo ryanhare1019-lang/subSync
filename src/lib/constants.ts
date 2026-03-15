@@ -14,16 +14,16 @@ export const STREAMING_SERVICES: ServiceOption[] = [
   { name: 'Spotify', type: 'streaming_music', defaultCost: 10.99, color: '#1DB954', bgColor: 'bg-green-950' },
   { name: 'Apple Music', type: 'streaming_music', defaultCost: 10.99, color: '#FC3C44', bgColor: 'bg-red-950' },
   { name: 'Tidal', type: 'streaming_music', defaultCost: 10.99, color: '#00FFFF', bgColor: 'bg-cyan-950' },
-  { name: 'Audible', type: 'audiobooks', defaultCost: 14.95, color: '#F8991D', bgColor: 'bg-orange-950' },
 ];
 
 // Simpleicons CDN slugs (https://simpleicons.org)
+// Each slug is verified against simpleicons brand list
 export const SERVICE_ICON_SLUGS: Record<string, string> = {
   'Netflix': 'netflix',
   'Hulu': 'hulu',
   'Disney+': 'disneyplus',
   'HBO Max': 'max',
-  'Amazon Prime': 'amazonprimevideo',
+  'Amazon Prime': 'primevideo',
   'Apple TV+': 'appletv',
   'Peacock': 'peacocktv',
   'Paramount+': 'paramountplus',
@@ -32,7 +32,6 @@ export const SERVICE_ICON_SLUGS: Record<string, string> = {
   'Spotify': 'spotify',
   'Apple Music': 'applemusic',
   'Tidal': 'tidal',
-  'Audible': 'audible',
 };
 
 // Billing / account management pages
@@ -50,7 +49,20 @@ export const BILLING_URLS: Record<string, string> = {
   'Spotify': 'https://www.spotify.com/account/subscription/',
   'Apple Music': 'https://apps.apple.com/account/subscriptions',
   'Tidal': 'https://account.tidal.com',
-  'Audible': 'https://www.audible.com/account/membership',
+};
+
+// Direct search URLs on each streaming service
+export const SERVICE_SEARCH_URLS: Record<string, (title: string) => string> = {
+  'Netflix': (t) => `https://www.netflix.com/search?q=${encodeURIComponent(t)}`,
+  'Hulu': (t) => `https://www.hulu.com/search?q=${encodeURIComponent(t)}`,
+  'Disney+': (t) => `https://www.disneyplus.com/search/${encodeURIComponent(t)}`,
+  'HBO Max': (t) => `https://www.max.com/search?q=${encodeURIComponent(t)}`,
+  'Amazon Prime': (t) => `https://www.amazon.com/s?k=${encodeURIComponent(t)}&i=instant-video`,
+  'Apple TV+': (t) => `https://tv.apple.com/search?term=${encodeURIComponent(t)}`,
+  'Peacock': (t) => `https://www.peacocktv.com/watch/asset/movies/search?q=${encodeURIComponent(t)}`,
+  'Paramount+': (t) => `https://www.paramountplus.com/search/${encodeURIComponent(t)}/`,
+  'Crunchyroll': (t) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}`,
+  'YouTube Premium': (t) => `https://www.youtube.com/results?search_query=${encodeURIComponent(t)}`,
 };
 
 // Direct music player links (not billing)
@@ -58,7 +70,6 @@ export const MUSIC_PLAYER_URLS: Record<string, string> = {
   'Spotify': 'https://open.spotify.com',
   'Apple Music': 'https://music.apple.com',
   'Tidal': 'https://tidal.com/browse',
-  'Audible': 'https://www.audible.com/library',
 };
 
 export const GENRES = [
