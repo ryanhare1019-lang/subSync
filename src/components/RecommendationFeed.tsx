@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recommendation } from '@/types';
 import { Button } from './ui/Button';
-import { Star, Heart, SkipForward, X, Film, Tv, Music, BookOpen, Mic, RefreshCw } from 'lucide-react';
+import { ServiceIcon } from './ServiceIcon';
+import { Star, Heart, SkipForward, X, Film, Tv, Music, BookOpen, Mic, RefreshCw, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 
 interface RecommendationFeedProps {
@@ -17,7 +18,7 @@ interface RecommendationFeedProps {
 }
 
 const MediaIcon = ({ type }: { type: string }) => {
-  const cls = "w-3 h-3";
+  const cls = 'w-3 h-3';
   switch (type) {
     case 'movie': return <Film className={cls} />;
     case 'tv': return <Tv className={cls} />;
@@ -28,15 +29,18 @@ const MediaIcon = ({ type }: { type: string }) => {
   }
 };
 
-function RecCard({ rec, userServices, onFeedback, onSkip }: {
+function RecCard({ rec, onFeedback, onSkip }: {
   rec: Recommendation;
-  userServices: string[];
   onFeedback: (id: string, feedback: 'loved' | 'watched' | 'not_interested') => Promise<void>;
   onSkip: (id: string) => void;
 }) {
   const [feedback, setFeedback] = useState(rec.user_feedback);
   const [busy, setBusy] = useState(false);
-  const hasService = rec.service_name ? userServices.includes(rec.service_name) : true;
+
+  // Support both legacy service_name and new available_on array
+  const availableOn: string[] = (rec as unknown as { available_on?: string[] }).available_on
+    || (rec.service_name ? [rec.service_name] : []);
+  const watchLink: string | null = (rec as unknown as { watch_link?: string | null }).watch_link || null;
 
   const handleFeedback = async (type: 'loved' | 'watched' | 'not_interested') => {
     if (feedback === type || busy) return;
@@ -44,6 +48,10 @@ function RecCard({ rec, userServices, onFeedback, onSkip }: {
     await onFeedback(rec.id, type);
     setFeedback(type);
     setBusy(false);
+  };
+
+  const handleWatch = () => {
+    if (watchLink) window.open(watchLink, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -54,7 +62,7 @@ function RecCard({ rec, userServices, onFeedback, onSkip }: {
       className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all flex"
     >
       {/* Poster */}
-      <div className="w-24 sm:w-28 flex-shrink-0 bg-gray-100 dark:bg-gray-800 relative min-h-[140px]">
+      <div className="w-24 sm:w-28 flex-shrink-0 bg-gray-100 dark:bg-gray-800 relative min-h-[148px]">
         {rec.poster_url ? (
           <Image
             src={rec.poster_url}
@@ -71,35 +79,61 @@ function RecCard({ rec, userServices, onFeedback, onSkip }: {
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 min-w-0">
-        <h3 className="text-gray-900 dark:text-white font-semibold text-sm leading-tight">{rec.title}</h3>
+      <div className="flex-1 p-3.5 min-w-0 flex flex-col">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-gray-900 dark:text-white font-semibold text-sm leading-tight">{rec.title}</h3>
+          {watchLink && availableOn.length > 0 && (
+            <button
+              onClick={handleWatch}
+              className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-hover transition-colors"
+            >
+              Watch <ExternalLink size={10} />
+            </button>
+          )}
+        </div>
+
+        {/* Media type + services */}
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs capitalize">
             <MediaIcon type={rec.media_type} />
             {rec.media_type}
           </span>
-          {rec.service_name && (
-            <span className={`text-xs px-1.5 py-0.5 rounded-md border ${
-              hasService
-                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-            }`}>
-              {rec.service_name}{!hasService && ' (not subscribed)'}
-            </span>
+          {availableOn.length > 0 && (
+            <div className="flex items-center gap-1 ml-1">
+              {availableOn.slice(0, 3).map(svc => (
+                <ServiceIcon key={svc} name={svc} size={13} variant="brand" />
+              ))}
+              {availableOn.length > 3 && (
+                <span className="text-xs text-gray-400">+{availableOn.length - 3}</span>
+              )}
+            </div>
           )}
         </div>
 
+        {/* AI reason */}
         {rec.ai_reason && (
-          <p className="text-gray-500 dark:text-gray-400 text-xs mt-2 leading-relaxed line-clamp-2">
+          <p className="text-gray-500 dark:text-gray-400 text-xs mt-2 leading-relaxed line-clamp-2 flex-1">
             {rec.ai_reason}
           </p>
         )}
 
         {/* Feedback */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex items-center gap-1.5 mt-2.5">
           {[
-            { type: 'loved' as const, icon: <Heart size={11} className={feedback === 'loved' ? 'fill-current' : ''} />, label: 'Loved', active: 'bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30', base: 'text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 border-gray-200 dark:border-gray-700' },
-            { type: 'not_interested' as const, icon: <X size={11} />, label: 'Not for me', active: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600', base: 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border-gray-200 dark:border-gray-700' },
+            {
+              type: 'loved' as const,
+              icon: <Heart size={11} className={feedback === 'loved' ? 'fill-current' : ''} />,
+              label: 'Loved',
+              active: 'bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30',
+              base: 'text-gray-400 dark:text-gray-500 hover:text-red-500 border-gray-200 dark:border-gray-700',
+            },
+            {
+              type: 'not_interested' as const,
+              icon: <X size={11} />,
+              label: 'Not for me',
+              active: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600',
+              base: 'text-gray-400 dark:text-gray-500 hover:text-gray-600 border-gray-200 dark:border-gray-700',
+            },
           ].map(btn => (
             <button
               key={btn.type}
@@ -113,7 +147,7 @@ function RecCard({ rec, userServices, onFeedback, onSkip }: {
           <button
             onClick={() => onSkip(rec.id)}
             disabled={busy}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-all bg-transparent border text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border-gray-200 dark:border-gray-700"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs bg-transparent border text-gray-400 dark:text-gray-500 hover:text-gray-600 border-gray-200 dark:border-gray-700 transition-all"
           >
             <SkipForward size={11} /> Skip
           </button>
@@ -137,7 +171,7 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Discover</h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Personalized picks for you</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Picks based on what you&apos;ve loved</p>
         </div>
         <Button onClick={onGetRecs} loading={loading} size="sm">
           <RefreshCw size={13} />
@@ -150,12 +184,13 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
           {error}
         </div>
       )}
+
       {visibleRecs.length === 0 && !loading ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <Star size={36} className="mx-auto mb-3 text-brand opacity-60" />
           <p className="text-gray-900 dark:text-white font-medium">Nothing here yet</p>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 mb-4 max-w-xs mx-auto">
-            Set up your taste profile and we&apos;ll find shows, movies, and more that match your vibe.
+            Love some titles in Browse and we&apos;ll find picks with the same vibe.
           </p>
           <Button onClick={onGetRecs} loading={loading}>
             Find my picks
@@ -171,12 +206,17 @@ export function RecommendationFeed({ recommendations, userServices, onGetRecs, o
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Finding your picks...
+                  Finding picks based on what you love...
                 </div>
               </div>
             )}
             {visibleRecs.map(rec => (
-              <RecCard key={rec.id} rec={rec} userServices={userServices} onFeedback={onFeedback} onSkip={handleSkip} />
+              <RecCard
+                key={rec.id}
+                rec={rec}
+                onFeedback={onFeedback}
+                onSkip={handleSkip}
+              />
             ))}
           </div>
         </AnimatePresence>
