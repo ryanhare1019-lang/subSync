@@ -351,6 +351,25 @@ export async function POST() {
     ? `ONLY recommend ${preferredTypes[0]} — the user exclusively interacts with this type.`
     : 'Mix movies and TV shows.';
 
+  // Pull extended taste data from preferences
+  const tastePrefs = (taste?.preferences as Record<string, unknown>) || {};
+  const vibes = (tastePrefs.vibes as Record<string, string>) || {};
+  const dealbreakers = (tastePrefs.dealbreakers as string[]) || [];
+  const personality = tastePrefs.personality as { label?: string; description?: string } | undefined;
+
+  const VIBE_LABELS: Record<string, string> = {
+    slow_burn: 'slow-burn', fast_paced: 'fast-paced',
+    comfort: 'comfort/cozy', cerebral: 'cerebral/thought-provoking',
+    true_stories: 'based on true events', fiction: 'pure fiction',
+    light: 'light & funny', dark: 'dark & intense',
+    solo: 'solo viewing', social_watch: 'group-friendly',
+    binge: 'binge-worthy', savor: 'episodic/one-at-a-time',
+  };
+
+  const vibeDescription = Object.entries(vibes)
+    .map(([, v]) => VIBE_LABELS[v] ?? v)
+    .join(', ');
+
   const prompt = `You are a personalized media recommendation engine. Pick the 8 best matches from the verified candidates below.
 
 USER SIGNALS:
@@ -359,6 +378,9 @@ USER SIGNALS:
 - Favorite genres: ${favGenres.join(', ') || 'not set'}
 - Genres to AVOID: ${((taste?.disliked_genres as string[]) || []).join(', ') || 'none'}
 - Media preference: ${preferredTypes.join(' and ')} (detected from interaction history)
+${vibeDescription ? `- Vibe preferences: ${vibeDescription}` : ''}
+${dealbreakers.length > 0 ? `- DEALBREAKERS — never recommend content with these traits: ${dealbreakers.map(d => d.replace(/_/g, ' ')).join(', ')}` : ''}
+${personality?.label ? `- Taste personality: ${personality.label} — ${personality.description || ''}` : ''}
 
 CANDIDATES:
 ${candidateList.map((c, i) =>
@@ -370,7 +392,9 @@ RULES:
 - Prefer titles available on user's services
 - Pick from at least 3 different genre vibes (no 8 thrillers, vary the mood)
 - Avoid disliked genres strictly
-- Write 1-2 sentence reasons that connect to their loved/favorite content
+- Honor dealbreakers — skip any candidate that matches a dealbreaker trait
+- Match the user's vibe preferences (pace, tone, complexity) when choosing between similar candidates
+- Write 1-2 sentence reasons that connect to their loved/favorite content and vibe
 - Only use exact candidates above — do not invent titles
 
 Return ONLY a JSON array:
