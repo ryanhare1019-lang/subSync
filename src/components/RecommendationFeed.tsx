@@ -62,8 +62,11 @@ function RecCard({ rec, onFeedback, onSkip }: {
       animate={{ opacity: 1, y: 0 }}
       className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all flex"
     >
-      {/* Poster */}
-      <div className="w-24 sm:w-28 flex-shrink-0 bg-gray-100 dark:bg-gray-800 relative min-h-[148px]">
+      {/* Poster — clickable if watch link available */}
+      <div
+        className={`w-24 sm:w-28 flex-shrink-0 bg-gray-100 dark:bg-gray-800 relative min-h-[148px] ${watchLink ? 'cursor-pointer' : ''}`}
+        onClick={watchLink ? handleWatch : undefined}
+      >
         {rec.poster_url ? (
           <Image
             src={rec.poster_url}
@@ -75,6 +78,11 @@ function RecCard({ rec, onFeedback, onSkip }: {
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-gray-300 dark:text-gray-600">
             <MediaIcon type={rec.media_type} />
+          </div>
+        )}
+        {watchLink && (
+          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center">
+            <ExternalLink size={16} className="text-white opacity-0 hover:opacity-100 drop-shadow" />
           </div>
         )}
       </div>
@@ -127,14 +135,14 @@ function RecCard({ rec, onFeedback, onSkip }: {
             {
               type: 'loved' as const,
               icon: <Heart size={11} className={feedback === 'loved' ? 'fill-current' : ''} />,
-              label: 'Loved',
+              label: 'Interested',
               active: 'bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30',
               base: 'text-gray-400 dark:text-gray-500 hover:text-red-500 border-gray-200 dark:border-gray-700',
             },
             {
               type: 'not_interested' as const,
               icon: <X size={11} />,
-              label: 'Not for me',
+              label: 'Not interested',
               active: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600',
               base: 'text-gray-400 dark:text-gray-500 hover:text-gray-600 border-gray-200 dark:border-gray-700',
             },
