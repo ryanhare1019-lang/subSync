@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
+    "@types/recharts": "^1.8.29",
     "framer-motion": "^12.36.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
@@ -19,6 +20,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-plaid-link": "^4.1.1",
+    "recharts": "^3.8.0",
     "simple-icons": "^16.11.0"
   },
   "devDependencies": {

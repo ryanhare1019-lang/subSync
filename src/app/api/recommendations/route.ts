@@ -473,5 +473,17 @@ export async function PATCH(req: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Auto-log activity for loved/watched feedback
+  if ((user_feedback === 'loved' || user_feedback === 'watched') && data?.service_name) {
+    await supabase.from('activity_log').insert({
+      user_id: user.id,
+      service_name: data.service_name,
+      activity_type: user_feedback === 'loved' ? 'saved' : 'watched',
+      source: 'rec_feedback',
+      title: data.title || null,
+    });
+  }
+
   return NextResponse.json(data);
 }
