@@ -19,12 +19,12 @@ const SI_ICONS: Record<string, { path: string; hex: string }> = {
   'Tidal':        siTidal,
 };
 
-// Services missing from simple-icons — use Clearbit logo CDN
-const CLEARBIT_DOMAINS: Record<string, string> = {
-  'Hulu':           'hulu.com',
-  'Disney+':        'disneyplus.com',
-  'Amazon Prime':   'primevideo.com',
-  'Peacock':        'peacocktv.com',
+// Services missing from simple-icons — use locally hosted TMDB logos
+const LOCAL_LOGOS: Record<string, string> = {
+  'Hulu':          '/logos/hulu.png',
+  'Disney+':       '/logos/disney-plus.png',
+  'Amazon Prime':  '/logos/amazon-prime.png',
+  'Peacock':       '/logos/peacock.png',
 };
 
 interface ServiceIconProps {
@@ -48,8 +48,8 @@ function LetterFallback({ name, size, color, className }: {
   );
 }
 
-function ClearbitIcon({ name, domain, size, variant, className }: {
-  name: string; domain: string; size: number; variant: 'white' | 'brand'; className: string;
+function LocalLogoIcon({ name, src, size, variant, className }: {
+  name: string; src: string; size: number; variant: 'white' | 'brand'; className: string;
 }) {
   const [failed, setFailed] = useState(false);
   const brandColor = SERVICE_COLORS[name] || '#279AF1';
@@ -68,7 +68,7 @@ function ClearbitIcon({ name, domain, size, variant, className }: {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`https://logo.clearbit.com/${domain}?size=128`}
+      src={src}
       alt={name}
       width={size}
       height={size}
@@ -77,7 +77,6 @@ function ClearbitIcon({ name, domain, size, variant, className }: {
         display: 'block',
         flexShrink: 0,
         borderRadius: size * 0.18,
-        // Invert to white for white variant
         filter: variant === 'white' ? 'brightness(0) invert(1)' : undefined,
       }}
       onError={() => setFailed(true)}
@@ -107,13 +106,13 @@ export function ServiceIcon({ name, size = 20, variant = 'white', className = ''
     );
   }
 
-  // Clearbit for Hulu / Disney+ / Amazon Prime / Peacock
-  const domain = CLEARBIT_DOMAINS[name];
-  if (domain) {
+  // Locally hosted TMDB logos for Hulu / Disney+ / Amazon Prime / Peacock
+  const localSrc = LOCAL_LOGOS[name];
+  if (localSrc) {
     return (
-      <ClearbitIcon
+      <LocalLogoIcon
         name={name}
-        domain={domain}
+        src={localSrc}
         size={size}
         variant={variant}
         className={className}
