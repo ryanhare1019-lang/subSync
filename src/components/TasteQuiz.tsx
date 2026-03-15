@@ -527,15 +527,16 @@ export function TasteQuiz({ userId: _userId, existing }: TasteQuizProps) {
                 transition={{ duration: 0.45, ease: 'easeOut' }}>
 
                 {saving || !personality ? (
-                  <div className="flex flex-col items-center py-20">
-                    <motion.div
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                      className="text-6xl mb-6">
-                      ✨
-                    </motion.div>
-                    <p className="text-xl font-semibold text-white mb-2">Analyzing your taste…</p>
-                    <p className="text-gray-500 text-sm">Building your personality profile</p>
+                  <div className="flex flex-col items-center py-20 gap-6">
+                    <svg className="animate-spin h-8 w-8 text-brand" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <button
+                      onClick={() => router.push('/dashboard')}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+                      Skip — take me to the dashboard
+                    </button>
                   </div>
                 ) : (
                   <>
