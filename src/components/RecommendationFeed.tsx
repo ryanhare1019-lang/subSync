@@ -41,6 +41,7 @@ function RecCard({ rec, onFeedback, onSkip }: {
   const availableOn: string[] = (rec as unknown as { available_on?: string[] }).available_on
     || (rec.service_name ? [rec.service_name] : []);
   const watchLink: string | null = (rec as unknown as { watch_link?: string | null }).watch_link || null;
+  const userOwnedService: boolean = (rec as unknown as { user_owned_service?: boolean }).user_owned_service ?? true;
 
   const handleFeedback = async (type: 'loved' | 'watched' | 'not_interested') => {
     if (feedback === type || busy) return;
@@ -101,10 +102,13 @@ function RecCard({ rec, onFeedback, onSkip }: {
           {availableOn.length > 0 && (
             <div className="flex items-center gap-1.5 ml-1">
               {availableOn.slice(0, 3).map(svc => (
-                <ServiceIcon key={svc} name={svc} size={20} variant="brand" />
+                <ServiceIcon key={svc} name={svc} size={20} variant="brand" className={!userOwnedService ? 'opacity-40' : ''} />
               ))}
               {availableOn.length > 3 && (
                 <span className="text-xs text-gray-400">+{availableOn.length - 3}</span>
+              )}
+              {!userOwnedService && (
+                <span className="text-xs text-gray-400 italic">not subscribed</span>
               )}
             </div>
           )}

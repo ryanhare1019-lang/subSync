@@ -278,29 +278,58 @@ export async function POST() {
     );
   }
 
+  // All project video service names (supported by the app)
+  const ALL_PROJECT_SERVICES = Object.keys(VIDEO_PROVIDER_IDS);
+
   // --- Step 5: Check watch providers (parallel, capped at 35) ---
   const withProviders = await Promise.all(
     filtered.slice(0, 35).map(async (item) => {
       try {
         const { providerIds, link } = await getWatchProviders(item.id, item._type);
+        // Services the user owns that have this title
         const availableOn = services.filter((s: string) => {
           const pid = VIDEO_PROVIDER_IDS[s];
           return pid && providerIds.includes(pid);
         });
-        return { item, availableOn, watchLink: link };
+        // All project services (owned or not) that have this title
+        const projectServicesAvailable = ALL_PROJECT_SERVICES.filter(s => {
+          const pid = VIDEO_PROVIDER_IDS[s];
+          return pid && providerIds.includes(pid);
+        });
+        return { item, availableOn, projectServicesAvailable, watchLink: link };
       } catch {
-        return { item, availableOn: [] as string[], watchLink: null };
+        return { item, availableOn: [] as string[], projectServicesAvailable: [] as string[], watchLink: null };
       }
     })
   );
 
-  // Sort: on user services first, then by rating
-  withProviders.sort((a, b) => {
-    if (b.availableOn.length !== a.availableOn.length) return b.availableOn.length - a.availableOn.length;
-    return (b.item.vote_average || 0) - (a.item.vote_average || 0);
-  });
+  // Split into owned-service titles vs unowned-but-project-service titles
+  // Exclude anything on no known project service entirely
+  const onUserServices = withProviders
+    .filter(w => w.availableOn.length > 0)
+    .sort((a, b) => (b.item.vote_average || 0) - (a.item.vote_average || 0));
 
-  const candidateList = withProviders.slice(0, 24).map(({ item, availableOn }) => ({
+  const onProjectOnly = withProviders
+    .filter(w => w.availableOn.length === 0 && w.projectServicesAvailable.length > 0)
+    .sort((a, b) => (b.item.vote_average || 0) - (a.item.vote_average || 0));
+
+  // 75% from user's services, 25% from project services they don't own
+  const userSlots = 18;
+  const projectSlots = 6;
+  const orderedCandidates = [
+    ...onUserServices.slice(0, userSlots),
+    ...onProjectOnly.slice(0, projectSlots),
+  ];
+
+  // If user owns nothing on any service, fall back to showing project services only
+  const finalCandidates = orderedCandidates.length > 0 ? orderedCandidates : withProviders.slice(0, 24);
+
+  // Build candidateMap from full set for later mapping
+  const candidateMap = new Map(withProviders.map(({ item, availableOn, projectServicesAvailable, watchLink }) => [
+    item.id, { item, availableOn, projectServicesAvailable, watchLink },
+  ]));
+
+  const candidateList = finalCandidates.slice(0, 24).map(({ item, availableOn, projectServicesAvailable }) => ({
     tmdb_id: item.id,
     title: item.title || item.name || '',
     year: (item.release_date || item.first_air_date || '').split('-')[0] || null,
@@ -309,6 +338,9 @@ export async function POST() {
     genres: (item.genre_ids || []).slice(0, 3).map(id => TMDB_GENRE_NAMES[id]).filter(Boolean),
     overview: (item.overview || '').slice(0, 160),
     available_on: availableOn,
+    // Show whichever service has it (user's first, then project services)
+    display_services: availableOn.length > 0 ? availableOn : projectServicesAvailable,
+    user_owned: availableOn.length > 0,
     because_of: item._source,
   }));
 
@@ -330,7 +362,7 @@ USER SIGNALS:
 
 CANDIDATES:
 ${candidateList.map((c, i) =>
-  `${i + 1}. id=${c.tmdb_id} | "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) | genres: ${c.genres.join(', ') || 'unknown'} | services: ${c.available_on.join(', ') || 'none'} | source: ${c.because_of}\n   ${c.overview}`
+  `${i + 1}. id=${c.tmdb_id} | "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) | genres: ${c.genres.join(', ') || 'unknown'} | services: ${c.display_services.join(', ') || 'none'}${!c.user_owned && c.display_services.length > 0 ? ' (not subscribed)' : ''} | source: ${c.because_of}\n   ${c.overview}`
 ).join('\n')}
 
 RULES:
@@ -343,10 +375,6 @@ RULES:
 
 Return ONLY a JSON array:
 [{"tmdb_id":number,"reason":"string"},...]`;
-
-  const candidateMap = new Map(withProviders.map(({ item, availableOn, watchLink }) => [
-    item.id, { item, availableOn, watchLink },
-  ]));
 
   let pickedIds: Array<{ tmdb_id: number; reason: string }> = [];
   try {
@@ -376,16 +404,20 @@ Return ONLY a JSON array:
     .map(pick => {
       const found = candidateMap.get(pick.tmdb_id);
       if (!found) return null;
-      const { item, availableOn } = found;
+      const { item, availableOn, projectServicesAvailable } = found;
+      const displayServices = availableOn.length > 0 ? availableOn : projectServicesAvailable;
       return {
         user_id: user.id,
         title: item.title || item.name || '',
         media_type: item._type,
-        service_name: availableOn[0] || null,
+        service_name: displayServices[0] || null,
         tmdb_id: item.id,
         poster_url: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : null,
         ai_reason: pick.reason,
         user_feedback: null,
+        _display_services: displayServices,
+        _user_owned: availableOn.length > 0,
+        _watch_link: found.watchLink,
       };
     })
     .filter(Boolean);
@@ -394,9 +426,17 @@ Return ONLY a JSON array:
     return NextResponse.json({ error: 'Could not match picks — try refreshing.' }, { status: 500 });
   }
 
+  // Strip temp fields before inserting into DB
+  const toInsert = enriched.map((r) => {
+    const rec = r as Record<string, unknown>;
+    const { _display_services, _user_owned, _watch_link, ...dbFields } = rec;
+    void _display_services; void _user_owned; void _watch_link;
+    return dbFields;
+  });
+
   const { data: saved, error } = await supabase
     .from('recommendations')
-    .insert(enriched)
+    .insert(toInsert)
     .select();
 
   if (error) {
@@ -404,10 +444,15 @@ Return ONLY a JSON array:
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Attach available_on + watch_link in-memory (not DB columns)
+  // Re-attach display info in-memory for the response
   const withExtra = (saved || []).map((rec: Record<string, unknown>) => {
-    const found = candidateMap.get(rec.tmdb_id as number);
-    return { ...rec, available_on: found?.availableOn || [], watch_link: found?.watchLink || null };
+    const original = (enriched as Record<string, unknown>[]).find(e => (e as Record<string, unknown>).tmdb_id === rec.tmdb_id);
+    return {
+      ...rec,
+      available_on: (original as Record<string, unknown>)?._display_services || [],
+      watch_link: (original as Record<string, unknown>)?._watch_link || null,
+      user_owned_service: (original as Record<string, unknown>)?._user_owned ?? true,
+    };
   });
 
   return NextResponse.json(withExtra);
