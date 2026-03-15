@@ -99,9 +99,9 @@ function RecCard({ rec, onFeedback, onSkip }: {
             {rec.media_type}
           </span>
           {availableOn.length > 0 && (
-            <div className="flex items-center gap-1 ml-1">
+            <div className="flex items-center gap-1.5 ml-1">
               {availableOn.slice(0, 3).map(svc => (
-                <ServiceIcon key={svc} name={svc} size={13} variant="brand" />
+                <ServiceIcon key={svc} name={svc} size={20} variant="brand" />
               ))}
               {availableOn.length > 3 && (
                 <span className="text-xs text-gray-400">+{availableOn.length - 3}</span>

@@ -20,6 +20,15 @@ const GENRE_IDS: Record<string, number[]> = {
   'Thriller': [53], 'True Crime': [80, 99], 'Western': [37],
 };
 
+const TMDB_GENRE_NAMES: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+  99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+  27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-Fi',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality',
+  10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics',
+};
+
 interface TMDBItem {
   id: number;
   title?: string;
@@ -29,6 +38,24 @@ interface TMDBItem {
   first_air_date?: string;
   vote_average?: number;
   overview?: string;
+  genre_ids?: number[];
+}
+
+async function fetchCredits(tmdbId: number, type: 'movie' | 'tv'): Promise<string[]> {
+  if (!API_KEY) return [];
+  const res = await fetch(`${TMDB_BASE}/${type}/${tmdbId}/credits?api_key=${API_KEY}&language=en-US`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const cast: Array<{ name: string; order: number }> = data.cast || [];
+  return cast.sort((a, b) => a.order - b.order).slice(0, 3).map(c => c.name);
+}
+
+function buildFallbackReason(item: TMDBItem, type: 'movie' | 'tv', stars: string[]): string {
+  const genreNames = (item.genre_ids || []).slice(0, 2).map(id => TMDB_GENRE_NAMES[id]).filter(Boolean);
+  const genrePart = genreNames.length > 0 ? genreNames.join('/') + ' ' : '';
+  const starPart = stars.length > 0 ? ` starring ${stars.slice(0, 2).join(' and ')}` : '';
+  const rating = item.vote_average ? ` — rated ${Math.round(item.vote_average * 10) / 10}/10` : '';
+  return `A ${genrePart}${type}${starPart}${rating} that matches your taste profile.`;
 }
 
 type RawCandidate = TMDBItem & { _type: 'movie' | 'tv'; _source: string };
@@ -279,6 +306,7 @@ export async function POST() {
     year: (item.release_date || item.first_air_date || '').split('-')[0] || null,
     media_type: item._type,
     rating: Math.round((item.vote_average || 0) * 10) / 10,
+    genres: (item.genre_ids || []).slice(0, 3).map(id => TMDB_GENRE_NAMES[id]).filter(Boolean),
     overview: (item.overview || '').slice(0, 160),
     available_on: availableOn,
     because_of: item._source,
@@ -302,7 +330,7 @@ USER SIGNALS:
 
 CANDIDATES:
 ${candidateList.map((c, i) =>
-  `${i + 1}. id=${c.tmdb_id} | "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) | services: ${c.available_on.join(', ') || 'none'} | source: ${c.because_of}\n   ${c.overview}`
+  `${i + 1}. id=${c.tmdb_id} | "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) | genres: ${c.genres.join(', ') || 'unknown'} | services: ${c.available_on.join(', ') || 'none'} | source: ${c.because_of}\n   ${c.overview}`
 ).join('\n')}
 
 RULES:
@@ -328,9 +356,18 @@ Return ONLY a JSON array:
     if (!Array.isArray(pickedIds)) throw new Error('Not an array');
   } catch (err) {
     console.error('Claude parse error:', err);
-    pickedIds = candidateList.slice(0, 8).map(c => ({
+    // Fetch credits for top 8 candidates so fallback reasons are informative
+    const fallbackCandidates = candidateList.slice(0, 8);
+    const fallbackCredits = await Promise.all(
+      fallbackCandidates.map(c => fetchCredits(c.tmdb_id, c.media_type))
+    );
+    pickedIds = fallbackCandidates.map((c, i) => ({
       tmdb_id: c.tmdb_id,
-      reason: `A well-rated ${c.media_type} that aligns with your taste profile.`,
+      reason: buildFallbackReason(
+        withProviders.find(w => w.item.id === c.tmdb_id)?.item || { id: c.tmdb_id },
+        c.media_type,
+        fallbackCredits[i]
+      ),
     }));
   }
 
