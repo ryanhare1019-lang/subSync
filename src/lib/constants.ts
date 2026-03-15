@@ -15,39 +15,6 @@ export const STREAMING_SERVICES: ServiceOption[] = [
   { name: 'Tidal', type: 'streaming_music', defaultCost: 10.99, color: '#00FFFF', bgColor: 'bg-cyan-950' },
 ];
 
-// Simpleicons CDN slugs (https://simpleicons.org)
-// Each slug is verified against simpleicons brand list
-export const SERVICE_ICON_SLUGS: Record<string, string> = {
-  'Netflix': 'netflix',
-  'Hulu': 'hulu',
-  'Disney+': 'disneyplus',
-  'HBO Max': 'max',
-  'Amazon Prime': 'primevideo',
-  'Apple TV+': 'appletv',
-  'Peacock': 'peacocktv',
-  'Paramount+': 'paramountplus',
-  'Crunchyroll': 'crunchyroll',
-  'Spotify': 'spotify',
-  'Apple Music': 'applemusic',
-  'Tidal': 'tidal',
-};
-
-// Clearbit-friendly domains for real colored logos
-export const SERVICE_LOGO_DOMAINS: Record<string, string> = {
-  'Netflix': 'netflix.com',
-  'Hulu': 'hulu.com',
-  'Disney+': 'disneyplus.com',
-  'HBO Max': 'max.com',
-  'Amazon Prime': 'primevideo.com',
-  'Apple TV+': 'tv.apple.com',
-  'Peacock': 'peacocktv.com',
-  'Paramount+': 'paramountplus.com',
-  'Crunchyroll': 'crunchyroll.com',
-  'Spotify': 'spotify.com',
-  'Apple Music': 'music.apple.com',
-  'Tidal': 'tidal.com',
-};
-
 // Billing / account management pages
 export const BILLING_URLS: Record<string, string> = {
   'Netflix': 'https://www.netflix.com/YourAccount',

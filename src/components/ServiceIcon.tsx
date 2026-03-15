@@ -1,112 +1,141 @@
 'use client';
 
 import { useState } from 'react';
-import { SERVICE_ICON_SLUGS, SERVICE_COLORS, SERVICE_LOGO_DOMAINS } from '@/lib/constants';
+import {
+  siNetflix, siMax, siAppletv, siParamountplus, siCrunchyroll,
+  siSpotify, siApplemusic, siTidal,
+} from 'simple-icons';
+import { SERVICE_COLORS } from '@/lib/constants';
+
+// Services covered by simple-icons (inline SVG — no network, always works)
+const SI_ICONS: Record<string, { path: string; hex: string }> = {
+  'Netflix':      siNetflix,
+  'HBO Max':      siMax,
+  'Apple TV+':    siAppletv,
+  'Paramount+':   siParamountplus,
+  'Crunchyroll':  siCrunchyroll,
+  'Spotify':      siSpotify,
+  'Apple Music':  siApplemusic,
+  'Tidal':        siTidal,
+};
+
+// Services missing from simple-icons — use Clearbit logo CDN
+const CLEARBIT_DOMAINS: Record<string, string> = {
+  'Hulu':           'hulu.com',
+  'Disney+':        'disneyplus.com',
+  'Amazon Prime':   'primevideo.com',
+  'Peacock':        'peacocktv.com',
+};
 
 interface ServiceIconProps {
   name: string;
   size?: number;
-  /** 'white' forces white icon via simpleicons (for dark backgrounds), 'brand' uses clearbit colored logo */
+  /** 'white' = white icon (for dark/colored backgrounds), 'brand' = official brand color */
   variant?: 'white' | 'brand';
   className?: string;
 }
 
-function LetterFallback({ name, size, variant, color, className }: {
-  name: string; size: number; variant: 'white' | 'brand'; color: string; className: string;
+function LetterFallback({ name, size, color, className }: {
+  name: string; size: number; color: string; className: string;
 }) {
   return (
     <span
       className={`font-bold flex items-center justify-center flex-shrink-0 ${className}`}
-      style={{
-        fontSize: size * 0.55,
-        color: variant === 'white' ? '#fff' : color,
-        width: size,
-        height: size,
-      }}
+      style={{ fontSize: size * 0.55, color, width: size, height: size }}
     >
       {name[0]}
     </span>
   );
 }
 
+function ClearbitIcon({ name, domain, size, variant, className }: {
+  name: string; domain: string; size: number; variant: 'white' | 'brand'; className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const brandColor = SERVICE_COLORS[name] || '#279AF1';
+
+  if (failed) {
+    return (
+      <LetterFallback
+        name={name}
+        size={size}
+        color={variant === 'white' ? '#fff' : brandColor}
+        className={className}
+      />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://logo.clearbit.com/${domain}?size=128`}
+      alt={name}
+      width={size}
+      height={size}
+      className={className}
+      style={{
+        display: 'block',
+        flexShrink: 0,
+        borderRadius: size * 0.18,
+        // Invert to white for white variant
+        filter: variant === 'white' ? 'brightness(0) invert(1)' : undefined,
+      }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function ServiceIcon({ name, size = 20, variant = 'white', className = '' }: ServiceIconProps) {
-  const [clearbitFailed, setClearbitFailed] = useState(false);
-  const [simpleiconFailed, setSimpleiconFailed] = useState(false);
-  const slug = SERVICE_ICON_SLUGS[name];
-  const domain = SERVICE_LOGO_DOMAINS[name];
-  const color = SERVICE_COLORS[name] || '#279AF1';
+  const si = SI_ICONS[name];
+  const brandColor = SERVICE_COLORS[name] || (si ? `#${si.hex}` : '#279AF1');
 
-  // White variant: simpleicons CDN with white hex
-  if (variant === 'white') {
-    if (!slug || simpleiconFailed) {
-      return <LetterFallback name={name} size={size} variant={variant} color={color} className={className} />;
-    }
-    const src = `https://cdn.simpleicons.org/${slug}/ffffff`;
+  // Inline SVG from simple-icons — most reliable
+  if (si) {
+    const fill = variant === 'white' ? '#ffffff' : `#${si.hex}`;
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={name}
+      <svg
         width={size}
         height={size}
+        viewBox="0 0 24 24"
+        fill={fill}
         className={className}
-        style={{ display: 'block', flexShrink: 0 }}
-        onError={() => setSimpleiconFailed(true)}
+        style={{ flexShrink: 0, display: 'block' }}
+        aria-label={name}
+      >
+        <path d={si.path} />
+      </svg>
+    );
+  }
+
+  // Clearbit for Hulu / Disney+ / Amazon Prime / Peacock
+  const domain = CLEARBIT_DOMAINS[name];
+  if (domain) {
+    return (
+      <ClearbitIcon
+        name={name}
+        domain={domain}
+        size={size}
+        variant={variant}
+        className={className}
       />
     );
   }
 
-  // Brand variant: try clearbit first, then simpleicons brand color, then letter
-  if (variant === 'brand') {
-    if (!domain && !slug) {
-      return <LetterFallback name={name} size={size} variant={variant} color={color} className={className} />;
-    }
-
-    // Both clearbit and simpleicons failed - letter fallback
-    if ((clearbitFailed || !domain) && (simpleiconFailed || !slug)) {
-      return <LetterFallback name={name} size={size} variant={variant} color={color} className={className} />;
-    }
-
-    // Clearbit failed but simpleicons available
-    if ((clearbitFailed || !domain) && slug && !simpleiconFailed) {
-      const hex = color.replace('#', '');
-      const src = `https://cdn.simpleicons.org/${slug}/${hex}`;
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt={name}
-          width={size}
-          height={size}
-          className={className}
-          style={{ display: 'block', flexShrink: 0 }}
-          onError={() => setSimpleiconFailed(true)}
-        />
-      );
-    }
-
-    // Use clearbit (real colored logo)
-    const clearbitSrc = `https://logo.clearbit.com/${domain}?size=128`;
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={clearbitSrc}
-        alt={name}
-        width={size}
-        height={size}
-        className={className}
-        style={{ display: 'block', flexShrink: 0, borderRadius: size * 0.2 }}
-        onError={() => setClearbitFailed(true)}
-      />
-    );
-  }
-
-  return <LetterFallback name={name} size={size} variant={variant} color={color} className={className} />;
+  // Letter fallback for any unknown service
+  return (
+    <LetterFallback
+      name={name}
+      size={size}
+      color={variant === 'white' ? '#fff' : brandColor}
+      className={className}
+    />
+  );
 }
 
 /** Colored circle badge with logo inside */
 export function ServiceBadge({ name, size = 40 }: { name: string; size?: number }) {
-  const color = SERVICE_COLORS[name] || '#279AF1';
+  const si = SI_ICONS[name];
+  const color = SERVICE_COLORS[name] || (si ? `#${si.hex}` : '#279AF1');
   return (
     <div
       className="rounded-xl flex items-center justify-center flex-shrink-0"
