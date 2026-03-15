@@ -81,7 +81,7 @@ function BecauseYouLikedEvent({ source, recommendations, onDismiss }: {
         </p>
         <button onClick={onDismiss} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 text-xs">✕</button>
       </div>
-      <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex gap-2.5 overflow-x-auto overflow-y-hidden pb-1" style={{ scrollbarWidth: 'none' }}>
         {recommendations.slice(0, 10).map(item => (
           <div key={item.id} style={{ width: 80, flexShrink: 0 }}
             className="cursor-pointer group"
@@ -244,7 +244,7 @@ function HorizontalRow({ row, type, onFeedback }: {
   return (
     <div className="mb-10">
       <h2 className="text-gray-900 dark:text-white text-lg font-bold mb-3">{row.name}</h2>
-      <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth" style={{ scrollbarWidth: 'thin' }}>
+      <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-2" style={{ scrollbarWidth: 'thin' }}>
         {row.results.map(item => (
           <PosterCard key={item.id} item={item} type={type} onFeedback={onFeedback} />
         ))}
