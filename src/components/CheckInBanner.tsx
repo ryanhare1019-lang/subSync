@@ -28,11 +28,18 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
   const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tablesMissing, setTablesMissing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/checkin/status')
       .then(r => r.json())
-      .then((data: CheckInStatus) => {
+      .then((data: CheckInStatus & { tables_missing?: boolean }) => {
+        if (data.tables_missing) {
+          setTablesMissing(true);
+          setLoading(false);
+          return;
+        }
         setStatus(data);
         if (data.checked_in_today) {
           setSelected(new Set(data.today_services));
@@ -57,23 +64,35 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
   const handleSubmit = async () => {
     if (selected.size === 0 || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await fetch('/api/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           services: Array.from(selected),
-          replace: isCheckedIn, // replace on edit, append on first check-in
+          replace: isCheckedIn,
         }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setSubmitError(data.error || 'Failed to save check-in.');
+        return;
+      }
       setStatus(prev => prev ? {
         ...prev,
         checked_in_today: true,
         today_services: Array.from(selected),
         current_streak: data.current_streak,
         longest_streak: data.longest_streak,
-      } : prev);
+      } : {
+        checked_in_today: true,
+        today_services: Array.from(selected),
+        current_streak: data.current_streak,
+        longest_streak: data.longest_streak,
+        broke_streak: false,
+        previous_streak: null,
+      });
       setEditing(false);
       setJustSaved(true);
       setTimeout(() => {
@@ -87,6 +106,14 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
   };
 
   if (loading || subscriptions.length === 0) return null;
+
+  if (tablesMissing) {
+    return (
+      <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-3 mb-6 text-xs text-amber-700 dark:text-amber-400">
+        <strong>Missing database tables.</strong> Run the spending dashboard SQL migrations in Supabase (activity_log, spending_snapshots, checkin_streaks) to enable check-ins.
+      </div>
+    );
+  }
 
   const streak = status?.current_streak ?? 0;
   const showForm = !isCheckedIn || editing;
@@ -186,6 +213,13 @@ export function CheckInBanner({ subscriptions, onCheckinComplete }: CheckInBanne
                   );
                 })}
               </div>
+
+              {/* Submit error */}
+              {submitError && (
+                <p className="text-xs text-red-600 dark:text-red-400 mb-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-3 py-2">
+                  {submitError}
+                </p>
+              )}
 
               {/* Action row */}
               <div className="flex items-center gap-2">
