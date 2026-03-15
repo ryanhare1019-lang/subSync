@@ -7,6 +7,20 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 const API_KEY = process.env.TMDB_API_KEY;
 
+// Video-only provider IDs (exclude music services)
+const VIDEO_PROVIDER_IDS: Record<string, number> = Object.fromEntries(
+  Object.entries(PROVIDER_IDS).filter(([name]) =>
+    !['Spotify', 'Apple Music', 'Tidal'].includes(name)
+  )
+);
+
+const GENRE_IDS: Record<string, number[]> = {
+  'Action': [28, 10759], 'Adventure': [12], 'Animation': [16], 'Comedy': [35],
+  'Crime': [80], 'Documentary': [99], 'Drama': [18], 'Fantasy': [14, 10765],
+  'Horror': [27], 'Mystery': [9648], 'Romance': [10749], 'Sci-Fi': [878, 10765],
+  'Thriller': [53], 'True Crime': [80, 99], 'Western': [37],
+};
+
 interface TMDBItem {
   id: number;
   title?: string;
@@ -15,21 +29,21 @@ interface TMDBItem {
   release_date?: string;
   first_air_date?: string;
   vote_average?: number;
-  genre_ids?: number[];
   overview?: string;
 }
 
-interface Candidate {
-  tmdb_id: number;
-  title: string;
-  media_type: 'movie' | 'tv';
-  year: string | null;
-  poster_url: string | null;
-  rating: number;
-  overview: string;
-  available_on: string[];
-  watch_link: string | null;
-  source_title?: string; // what loved item triggered this
+type RawCandidate = TMDBItem & { _type: 'movie' | 'tv'; _source: string };
+
+function extractJSON(text: string): string {
+  // Strip markdown code fences
+  let s = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+  // Find the outermost JSON array
+  const start = s.indexOf('[');
+  const end = s.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) {
+    s = s.slice(start, end + 1);
+  }
+  return s;
 }
 
 async function fetchTMDBRecs(tmdbId: number, type: 'movie' | 'tv'): Promise<TMDBItem[]> {
@@ -41,11 +55,11 @@ async function fetchTMDBRecs(tmdbId: number, type: 'movie' | 'tv'): Promise<TMDB
   const results: TMDBItem[] = [];
   if (recsRes.ok) {
     const d = await recsRes.json();
-    results.push(...(d.results || []).slice(0, 10));
+    results.push(...(d.results || []).slice(0, 12));
   }
   if (simRes.ok) {
     const d = await simRes.json();
-    results.push(...(d.results || []).slice(0, 10));
+    results.push(...(d.results || []).slice(0, 8));
   }
   return results;
 }
@@ -55,16 +69,20 @@ async function discoverByGenreIds(
   type: 'movie' | 'tv',
   providerIds: number[]
 ): Promise<TMDBItem[]> {
-  if (!API_KEY || providerIds.length === 0) return [];
+  if (!API_KEY || genreIds.length === 0) return [];
   const params = new URLSearchParams({
     api_key: API_KEY,
     with_genres: genreIds.join(','),
-    with_watch_providers: providerIds.join('|'),
-    watch_region: 'US',
     sort_by: 'vote_average.desc',
-    'vote_count.gte': '200',
+    'vote_count.gte': '300',
     include_adult: 'false',
+    language: 'en-US',
   });
+  // Only filter by providers if user has some; otherwise show anything
+  if (providerIds.length > 0) {
+    params.set('with_watch_providers', providerIds.join('|'));
+    params.set('watch_region', 'US');
+  }
   const res = await fetch(`${TMDB_BASE}/discover/${type}?${params}`);
   if (!res.ok) return [];
   const d = await res.json();
@@ -115,9 +133,10 @@ export async function POST() {
       .limit(100),
   ]);
 
-  const services = (subsRes.data || []).map((s: { service_name: string }) => s.service_name);
+  const services: string[] = (subsRes.data || []).map((s: { service_name: string }) => s.service_name);
   const taste = tasteRes.data;
-  const userProviderIds = services.map((n: string) => PROVIDER_IDS[n]).filter(Boolean) as number[];
+  const videoServices = services.filter(n => VIDEO_PROVIDER_IDS[n]);
+  const userProviderIds = videoServices.map(n => VIDEO_PROVIDER_IDS[n]);
 
   // Combine loved signals from both tables, deduplicate by tmdb_id
   const lovedMap = new Map<number, { title: string; tmdb_id: number; media_type: string }>();
@@ -126,7 +145,6 @@ export async function POST() {
   }
   const lovedItems = Array.from(lovedMap.values());
 
-  // Track already-seen tmdb_ids and rejected titles to avoid repeats
   const seenTmdbIds = new Set<number>(
     (prevRecsRes.data || []).filter((r: { tmdb_id: number | null }) => r.tmdb_id).map((r: { tmdb_id: number }) => r.tmdb_id)
   );
@@ -136,120 +154,135 @@ export async function POST() {
       .map((r: { title: string }) => r.title.toLowerCase())
   );
 
-  // --- Step 1: Gather TMDB candidates from loved items ---
-  const rawCandidates: Array<TMDBItem & { _type: 'movie' | 'tv'; _source: string }> = [];
-
+  // --- Step 1: TMDB recs from loved items ---
+  const rawCandidates: RawCandidate[] = [];
   for (const loved of lovedItems.slice(0, 6)) {
     const type = loved.media_type as 'movie' | 'tv';
     const items = await fetchTMDBRecs(loved.tmdb_id, type);
-    for (const item of items) {
-      rawCandidates.push({ ...item, _type: type, _source: loved.title });
-    }
+    for (const item of items) rawCandidates.push({ ...item, _type: type, _source: loved.title });
   }
 
-  // --- Step 2: If fewer than 15 candidates, supplement with genre-based discovery ---
-  if (rawCandidates.length < 15 && taste) {
-    const GENRE_IDS: Record<string, number[]> = {
-      'Action': [28, 10759], 'Adventure': [12], 'Animation': [16], 'Comedy': [35],
-      'Crime': [80], 'Documentary': [99], 'Drama': [18], 'Fantasy': [14, 10765],
-      'Horror': [27], 'Mystery': [9648], 'Romance': [10749], 'Sci-Fi': [878, 10765],
-      'Thriller': [53], 'K-Drama': [], 'True Crime': [80, 99], 'Western': [37],
-    };
-    const favoriteGenreIds = (taste.favorite_genres || []).flatMap((g: string) => GENRE_IDS[g] || []);
-    if (favoriteGenreIds.length > 0) {
+  // --- Step 2: Supplement with genre-based discovery ---
+  if (rawCandidates.length < 20) {
+    const favGenres: string[] = taste?.favorite_genres || [];
+    const profileTitles: Array<{ title: string }> = taste?.favorite_titles || [];
+
+    // Use favorite genres, or fall back to popular drama/comedy if none set
+    const genresToUse = favGenres.length > 0 ? favGenres : ['Drama', 'Comedy', 'Action'];
+    const genreIdList = [...new Set(genresToUse.flatMap(g => GENRE_IDS[g] || []))];
+
+    if (genreIdList.length > 0) {
       const [movieItems, tvItems] = await Promise.all([
-        discoverByGenreIds(favoriteGenreIds, 'movie', userProviderIds),
-        discoverByGenreIds(favoriteGenreIds, 'tv', userProviderIds),
+        discoverByGenreIds(genreIdList, 'movie', userProviderIds),
+        discoverByGenreIds(genreIdList, 'tv', userProviderIds),
       ]);
       for (const item of movieItems) rawCandidates.push({ ...item, _type: 'movie', _source: 'your taste profile' });
       for (const item of tvItems) rawCandidates.push({ ...item, _type: 'tv', _source: 'your taste profile' });
     }
+
+    // If still nothing, try popular titles from taste profile favorites via TMDB search
+    if (rawCandidates.length === 0 && profileTitles.length > 0) {
+      for (const fav of profileTitles.slice(0, 3)) {
+        const res = await fetch(`${TMDB_BASE}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(fav.title)}`);
+        if (!res.ok) continue;
+        const d = await res.json();
+        const top = (d.results || []).find((r: { media_type: string }) => r.media_type === 'movie' || r.media_type === 'tv');
+        if (!top) continue;
+        const type = top.media_type as 'movie' | 'tv';
+        const items = await fetchTMDBRecs(top.id, type);
+        for (const item of items) rawCandidates.push({ ...item, _type: type, _source: fav.title });
+      }
+    }
   }
 
-  // --- Step 3: Deduplicate and filter out already-seen/rejected ---
-  const seen = new Set<number>();
+  // --- Step 3: Deduplicate and filter ---
+  const deduped = new Set<number>();
   const filtered = rawCandidates.filter(item => {
-    if (!item.id || seen.has(item.id)) return false;
+    if (!item.id || deduped.has(item.id)) return false;
     if (seenTmdbIds.has(item.id)) return false;
     const title = (item.title || item.name || '').toLowerCase();
     if (rejectedTitles.has(title)) return false;
-    seen.add(item.id);
+    deduped.add(item.id);
     return true;
   });
 
   if (filtered.length === 0) {
-    return NextResponse.json({ error: 'Not enough data yet — love some content in Browse to improve picks!' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Add subscriptions and set up your taste profile, then love some titles in Browse — your picks will appear here.' },
+      { status: 400 }
+    );
   }
 
   // --- Step 4: Check watch providers (parallel, capped at 30) ---
   const withProviders = await Promise.all(
     filtered.slice(0, 30).map(async (item) => {
-      const { providerIds, link } = await getWatchProviders(item.id, item._type);
-      const availableOn = services.filter((s: string) => {
-        const pid = PROVIDER_IDS[s];
-        return pid && providerIds.includes(pid);
-      });
-      return { item, availableOn, watchLink: link };
+      try {
+        const { providerIds, link } = await getWatchProviders(item.id, item._type);
+        const availableOn = services.filter((s: string) => {
+          const pid = VIDEO_PROVIDER_IDS[s];
+          return pid && providerIds.includes(pid);
+        });
+        return { item, availableOn, watchLink: link };
+      } catch {
+        return { item, availableOn: [] as string[], watchLink: null };
+      }
     })
   );
 
   // Prioritize titles on user's services
   withProviders.sort((a, b) => b.availableOn.length - a.availableOn.length);
 
-  // Build candidate list for Claude
   const candidateList = withProviders.slice(0, 20).map(({ item, availableOn }) => ({
     tmdb_id: item.id,
     title: item.title || item.name || '',
     year: (item.release_date || item.first_air_date || '').split('-')[0] || null,
     media_type: item._type,
     rating: Math.round((item.vote_average || 0) * 10) / 10,
-    overview: (item.overview || '').slice(0, 200),
+    overview: (item.overview || '').slice(0, 180),
     available_on: availableOn,
     because_of: item._source,
   }));
 
-  // --- Step 5: Claude picks best 8 and writes personal reasons ---
+  // --- Step 5: Claude picks best 8 ---
   const lovedTitles = lovedItems.map(i => i.title);
-  const favTitles = ((taste?.favorite_titles || []) as Array<{ title: string; year: number | null }>)
-    .map(t => t.title);
+  const favTitles = ((taste?.favorite_titles || []) as Array<{ title: string }>).map(t => t.title);
 
-  const prompt = `You are a personalized media recommendation engine. Select the 8 best picks for this user from the verified candidates below and explain WHY each one fits them specifically.
+  const prompt = `You are a personalized media recommendation engine. Pick the 8 best matches for this user from the verified candidates and explain why each fits them.
 
-User's signal (what they've loved):
-${lovedTitles.length > 0 ? lovedTitles.join(', ') : 'No loved titles yet'}
-${favTitles.length > 0 ? `Favorite titles from their profile: ${favTitles.join(', ')}` : ''}
-${taste?.favorite_genres?.length > 0 ? `Favorite genres: ${(taste.favorite_genres as string[]).join(', ')}` : ''}
-${taste?.disliked_genres?.length > 0 ? `Genres to avoid: ${(taste.disliked_genres as string[]).join(', ')}` : ''}
+User loved: ${lovedTitles.length > 0 ? lovedTitles.join(', ') : 'nothing yet'}
+Taste profile favorites: ${favTitles.length > 0 ? favTitles.join(', ') : 'none'}
+Favorite genres: ${(taste?.favorite_genres as string[] || []).join(', ') || 'none'}
+Genres to avoid: ${(taste?.disliked_genres as string[] || []).join(', ') || 'none'}
 
-Verified candidates (real titles confirmed on streaming):
-${candidateList.map((c, i) => `${i + 1}. [id:${c.tmdb_id}] "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) — on: ${c.available_on.join(', ') || 'not on their services'} — because of: ${c.because_of}
-   Overview: ${c.overview}`).join('\n')}
+Candidates:
+${candidateList.map((c, i) =>
+  `${i + 1}. id=${c.tmdb_id} | "${c.title}" (${c.year}, ${c.media_type}, ⭐${c.rating}) | on: ${c.available_on.join(', ') || 'unknown'} | via: ${c.because_of} | ${c.overview}`
+).join('\n')}
 
-Rules:
-- Prefer titles available on their services
-- Avoid titles in disliked genres
-- Write 1-2 sentence reasons referencing their specific loved content or genres
-- Pick a mix of movies and TV shows
-- Do NOT invent or modify any title — only use the exact candidates above
+Rules: prefer titles on user's services, avoid disliked genres, reference loved content in reasons, mix movies and TV.
+Return ONLY a JSON array — no prose, no markdown:
+[{"tmdb_id":number,"reason":"string"},...]`;
 
-Respond ONLY with a JSON array, no other text:
-[{"tmdb_id": number, "reason": "string"}, ...]`;
+  const candidateMap = new Map(withProviders.map(({ item, availableOn, watchLink }) => [
+    item.id, { item, availableOn, watchLink },
+  ]));
 
   let pickedIds: Array<{ tmdb_id: number; reason: string }> = [];
   try {
     const raw = await getRecommendations(prompt);
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    const cleaned = extractJSON(raw);
     pickedIds = JSON.parse(cleaned);
-  } catch {
-    return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
+    if (!Array.isArray(pickedIds)) throw new Error('Not an array');
+  } catch (err) {
+    console.error('Claude parse error:', err);
+    // Fallback: use top 8 candidates with a generic reason
+    pickedIds = candidateList.slice(0, 8).map(c => ({
+      tmdb_id: c.tmdb_id,
+      reason: `Highly rated ${c.media_type} that matches your taste profile.`,
+    }));
   }
 
-  // --- Step 6: Map Claude picks back to full candidate data ---
-  const candidateMap = new Map(withProviders.map(({ item, availableOn, watchLink }) => [
-    item.id,
-    { item, availableOn, watchLink },
-  ]));
-
+  // --- Step 6: Map picks to full data ---
   const enriched = pickedIds
     .map(pick => {
       const found = candidateMap.get(pick.tmdb_id);
@@ -264,14 +297,12 @@ Respond ONLY with a JSON array, no other text:
         poster_url: item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : null,
         ai_reason: pick.reason,
         user_feedback: null,
-        available_on: availableOn,
-        watch_link: watchLink,
       };
     })
     .filter(Boolean);
 
   if (enriched.length === 0) {
-    return NextResponse.json({ error: 'Could not match recommendations to verified titles' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not match picks — try refreshing.' }, { status: 500 });
   }
 
   const { data: saved, error } = await supabase
@@ -279,8 +310,22 @@ Respond ONLY with a JSON array, no other text:
     .insert(enriched)
     .select();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(saved);
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Attach available_on + watch_link to returned data (in-memory, not stored)
+  const withExtra = (saved || []).map((rec: Record<string, unknown>) => {
+    const found = candidateMap.get(rec.tmdb_id as number);
+    return {
+      ...rec,
+      available_on: found?.availableOn || [],
+      watch_link: found?.watchLink || null,
+    };
+  });
+
+  return NextResponse.json(withExtra);
 }
 
 export async function PATCH(req: Request) {
