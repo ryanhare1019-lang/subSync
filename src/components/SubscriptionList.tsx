@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Subscription } from '@/types';
 import { SubscriptionCard } from './SubscriptionCard';
 import { AddSubscription } from './AddSubscription';
+import { PlaidLinkButton } from './PlaidLink';
 import { Button } from './ui/Button';
 import { formatCurrency, daysUntil } from '@/lib/utils';
 import { Plus, Wallet, Bell } from 'lucide-react';
@@ -64,6 +65,13 @@ export function SubscriptionList({ subscriptions, onAdd, onDelete, onUpdate }: S
         <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
           {formatCurrency(totalMonthly * 12)}/year across {subscriptions.length} services
         </p>
+      </div>
+
+      {/* Plaid auto-import */}
+      <div className="mb-4">
+        <PlaidLinkButton onSuccess={(imported) => {
+          if (imported.length > 0) window.location.reload();
+        }} />
       </div>
 
       <AnimatePresence mode="popLayout">
