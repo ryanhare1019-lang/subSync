@@ -22,7 +22,7 @@
     "react-dom": "19.2.3",
     "react-plaid-link": "^4.1.1",
     "recharts": "^3.8.0",
-    "simple-icons": "^16.11.0"
+    "simple-icons": "^16.14.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

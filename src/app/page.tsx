@@ -1,9 +1,30 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ServiceIcon } from '@/components/ServiceIcon';
+
+const HERO_IMAGES = [
+  'https://images5.alphacoders.com/605/thumb-1920-605945.jpg',
+  'https://cdn.mos.cms.futurecdn.net/LVoJnXBbUH6xx9EkfgVnc5.jpg',
+  'https://image.benq.com/is/image/benqco/T7-1200X600?$ResponsivePreset$',
+];
+
+const SERVICES = [
+  'Netflix', 'Hulu', 'Disney+', 'HBO Max', 'Amazon Prime',
+  'Apple TV+', 'Peacock', 'Paramount+', 'Crunchyroll',
+];
 
 export default function LandingPage() {
+  const [heroImg, setHeroImg] = useState('');
+
+  useEffect(() => {
+    setHeroImg(HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
+  }, []);
+
   return (
     <main className="min-h-screen bg-white dark:bg-gray-950 flex flex-col">
-      <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
+      <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white">
@@ -11,10 +32,10 @@ export default function LandingPage() {
               <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2" />
             </svg>
           </div>
-          <span className="text-gray-900 dark:text-white font-semibold">SubSync</span>
+          <span className="text-white font-semibold">SubSync</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">Log in</Link>
+          <Link href="/login" className="text-gray-300 hover:text-white text-sm transition-colors">Log in</Link>
           <Link href="/signup" className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
             Get started
           </Link>
@@ -22,45 +43,46 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="flex-1 flex flex-col items-center justify-center text-center px-6 pt-16 pb-8">
-        <div className="inline-flex items-center gap-2 bg-brand/10 border border-brand/20 rounded-full px-4 py-1.5 text-brand text-sm mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-          Smart picks from every service you pay for
-        </div>
+      <section className="relative w-full min-h-[85vh] flex flex-col items-center justify-center text-center px-6">
+        {/* Background image */}
+        {heroImg && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroImg}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/80" />
 
-        <h1 className="text-5xl sm:text-7xl font-extrabold text-gray-900 dark:text-white leading-[1.08] tracking-tight max-w-4xl">
-          Your next favorite show{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand to-brand-light">
-            is already waiting.
-          </span>
-        </h1>
+        <div className="relative z-10 flex flex-col items-center">
+          <h1
+            className="text-5xl sm:text-7xl font-bold text-white leading-[1.08] tracking-tight max-w-4xl"
+            style={{ fontFamily: "'Times New Roman', Times, serif" }}
+          >
+            Any movie in the galaxy, at your fingertip.
+          </h1>
 
-        <p className="text-brand font-semibold text-xl mt-5 tracking-wide">
-          All your media in one place.
-        </p>
+          <p className="text-brand font-semibold text-xl mt-5 tracking-wide">
+            All your media in one place.
+          </p>
 
-        <p className="text-gray-500 dark:text-gray-400 text-lg mt-4 max-w-xl leading-relaxed">
-          SubSync brings together every streaming subscription you own - so you always
-          know what to watch, when to cancel, and what you might be missing.
-        </p>
+          <div className="flex items-center gap-4 mt-10">
+            <Link href="/signup" className="bg-brand hover:bg-brand-hover text-white px-8 py-3.5 rounded-xl font-semibold text-base transition-all hover:scale-105 shadow-lg shadow-brand/25">
+              Start for free
+            </Link>
+            <Link href="/login" className="text-gray-300 hover:text-white px-6 py-3.5 rounded-xl font-medium text-base transition-colors border border-white/20 hover:border-white/40">
+              Sign in
+            </Link>
+          </div>
 
-        <div className="flex items-center gap-4 mt-10">
-          <Link href="/signup" className="bg-brand hover:bg-brand-hover text-white px-8 py-3.5 rounded-xl font-semibold text-base transition-all hover:scale-105 shadow-lg shadow-brand/25">
-            Start for free
-          </Link>
-          <Link href="/login" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-6 py-3.5 rounded-xl font-medium text-base transition-colors border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600">
-            Sign in
-          </Link>
-        </div>
-
-        {/* Service bubbles */}
-        <div className="flex items-center gap-2 mt-10 flex-wrap justify-center opacity-60">
-          {['N', 'H', 'D+', 'MAX', 'P', 'A+'].map((s, i) => (
-            <div key={i} className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
-              {s}
-            </div>
-          ))}
-          <span className="text-gray-400 text-xs ml-1">+ more</span>
+          {/* Service logos */}
+          <div className="flex items-center gap-4 mt-10 flex-wrap justify-center">
+            {SERVICES.map((name) => (
+              <ServiceIcon key={name} name={name} size={24} variant="white" />
+            ))}
+          </div>
         </div>
       </section>
 
